@@ -1,0 +1,1 @@
+export const MAGNET_TOKEN = 'magnet_token'; 

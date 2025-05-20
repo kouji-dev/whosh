@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Key Features to Implement:
+Social Media Integration
+    Connect with major platforms:
+    Twitter/X
+    Facebook
+    Instagram
+    LinkedIn
+    TikTok
+    Pinterest
+Content Management
+    Post creation and editing
+    Media upload support (images, videos)
+    Content calendar view
+    Draft management
+    Post templates
+Scheduling Features
+    Bulk scheduling
+    Best time to post suggestions
+    Queue management
+    Recurring posts
+    Time zone support
+Analytics & Reporting
+    Post performance metrics
+    Engagement analytics
+    Audience insights
+    Custom reports
+    Export functionality
+Team Collaboration
+    User roles and permissions
+    Team member management
+    Approval workflows
+
+    Comments and feedback
