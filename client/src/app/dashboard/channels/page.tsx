@@ -49,6 +49,9 @@ export default function ChannelsPage() {
             <DropdownMenuItem onClick={() => connectChannel("linkedin")}>
               LinkedIn
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => connectChannel("tiktok")}>
+              TikTok
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -78,6 +81,9 @@ export default function ChannelsPage() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => connectChannel("linkedin")}>
                 LinkedIn
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => connectChannel("tiktok")}>
+                TikTok
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

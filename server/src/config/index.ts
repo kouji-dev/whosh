@@ -11,7 +11,7 @@ export const serverConfig = {
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   apiUrl: process.env.API_URL,
-  clientUrl: process.env.CLIENT_URL,
+  clientUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 };
 
 // Database configuration
@@ -81,8 +81,8 @@ const validateConfig = () => {
     // { name: 'INSTAGRAM_CLIENT_SECRET', value: socialMediaConfig.instagram.clientSecret },
     // { name: 'LINKEDIN_CLIENT_ID', value: socialMediaConfig.linkedin.clientId },
     // { name: 'LINKEDIN_CLIENT_SECRET', value: socialMediaConfig.linkedin.clientSecret },
-    // { name: 'TIKTOK_CLIENT_ID', value: socialMediaConfig.tiktok.clientId },
-    // { name: 'TIKTOK_CLIENT_SECRET', value: socialMediaConfig.tiktok.clientSecret },
+     { name: 'TIKTOK_CLIENT_ID', value: socialMediaConfig.tiktok.clientId },
+     { name: 'TIKTOK_CLIENT_SECRET', value: socialMediaConfig.tiktok.clientSecret },
     // { name: 'YOUTUBE_CLIENT_ID', value: socialMediaConfig.youtube.clientId },
     // { name: 'YOUTUBE_CLIENT_SECRET', value: socialMediaConfig.youtube.clientSecret },
   ];

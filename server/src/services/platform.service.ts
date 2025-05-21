@@ -1,26 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { platforms, PlatformCode } from '../config/platforms';
-import { OAuthTokens } from '../types/platform';
-
-interface TokenResponse {
-  access_token: string;
-  refresh_token?: string;
-  expires_in: number;
-}
-
-interface UserInfoResponse {
-  id: string;
-  username?: string;
-  name?: string;
-  email?: string;
-}
-
-interface FacebookPage {
-  id: string;
-  name: string;
-  access_token: string;
-  category?: string;
-}
+import { PlatformHandlerFactory } from './platforms/PlatformHandlerFactory';
+import { prisma } from '../lib/prisma';
 
 interface Channel {
   id: string;
@@ -35,10 +15,35 @@ interface Channel {
   accountId: string;
   lastSync: Date | null;
   isValid: boolean;
-  parentConnectionId?: string; // For channels that belong to a parent connection (e.g., Facebook pages)
+  parentConnectionId?: string;
+  avatarUrl?: string | null;
 }
 
-const prisma = new PrismaClient();
+interface PlatformConnection {
+  id: string;
+  userId: string;
+  platformId: string;
+  accessToken: string;
+  refreshToken: string | null;
+  accountId: string;
+  accountName: string | null;
+  profileImage: string | null;
+  lastSync: Date | null;
+  isValid: boolean;
+  scopes: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  parentConnectionId?: string;
+  platform: {
+    id: string;
+    code: string;
+    name: string;
+    icon: string;
+    color: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
 
 export class PlatformService {
   // Get list of available platform types and user's connected channels
@@ -60,7 +65,7 @@ export class PlatformService {
       authUrl: platform.authUrl,
       tokenUrl: platform.tokenUrl,
       userInfoUrl: platform.userInfoUrl,
-      supportsMultipleChannels: code === 'facebook' // Add this flag for platforms that support multiple channels
+      supportsMultipleChannels: code === 'facebook'
     }));
 
     // Get user's connected channels for each platform type
@@ -82,7 +87,8 @@ export class PlatformService {
         accountId: channel.accountId,
         lastSync: channel.lastSync,
         isValid: channel.isValid,
-        parentConnectionId: channel.parentConnectionId
+        parentConnectionId: (channel as any).parentConnectionId,
+        avatarUrl: channel.profileImage || null
       });
       return acc;
     }, {});
@@ -94,89 +100,42 @@ export class PlatformService {
   }
 
   // Get OAuth URL for channel connection
-  static getAuthUrl(platform: PlatformCode, redirectUri: string): string {
-    const platformConfig = platforms[platform];
-    const scopes = platformConfig.scopes.join(' ');
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: platformConfig.clientId,
-      redirect_uri: redirectUri,
-      scope: scopes
-    });
-
-    return `${platformConfig.authUrl}?${params.toString()}`;
+  static getAuthUrl(platform: PlatformCode, redirectUri: string, userId: string): string {
+    const handler = PlatformHandlerFactory.getHandler(platform);
+    return handler.getAuthUrl(redirectUri, userId);
   }
 
   // Handle OAuth callback and token exchange
-  static async handleCallback(platform: PlatformCode, code: string, redirectUri: string) {
-    const platformConfig = platforms[platform];
-    const params = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      client_id: platformConfig.clientId,
-      client_secret: platformConfig.clientSecret
-    });
-
-    const response = await fetch(platformConfig.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: params.toString()
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to exchange code for token: ${response.statusText}`);
+  static async handleCallback(
+    platform: PlatformCode,
+    code: string,
+    redirectUri: string,
+    state?: string,
+    userId?: string,
+    clientUrl?: string
+  ) {
+    const handler = PlatformHandlerFactory.getHandler(platform);
+    const tokens = await handler.handleCallback(code, redirectUri, state);
+    
+    if (userId && clientUrl) {
+      const userInfo = await handler.getUserInfo(tokens.accessToken);
+      return handler.handleConnection(userId, tokens, userInfo, clientUrl);
     }
-
-    const data = await response.json() as TokenResponse;
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresIn: data.expires_in
-    };
+    
+    return tokens;
   }
 
   // Get user info from platform
   static async getPlatformUserInfo(platform: PlatformCode, accessToken: string) {
-    const platformConfig = platforms[platform];
-    const response = await fetch(platformConfig.userInfoUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get user info: ${response.statusText}`);
-    }
-
-    const data = await response.json() as UserInfoResponse;
-    return {
-      id: data.id,
-      username: data.username || data.name || data.email
-    };
-  }
-
-  // Get Facebook pages for a user
-  static async getFacebookPages(accessToken: string): Promise<FacebookPage[]> {
-    const response = await fetch(
-      `https://graph.facebook.com/v22.0/me/accounts?access_token=${accessToken}`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch Facebook pages');
-    }
-
-    const data = await response.json();
-    return data.data as FacebookPage[];
+    const handler = PlatformHandlerFactory.getHandler(platform);
+    return handler.getUserInfo(accessToken);
   }
 
   // Save connected channel
   static async saveConnectedChannel(
     userId: string,
     platform: PlatformCode,
-    tokens: { accessToken: string; refreshToken: string; expiresIn: number },
+    tokens: { accessToken: string; refreshToken: string | null; expiresIn: number; accountId: string },
     platformUserId: string,
     platformUsername: string,
     parentConnectionId?: string
@@ -193,53 +152,24 @@ export class PlatformService {
       }
     });
 
-    return prisma.platformConnection.create({
-      data: {
-        userId,
-        platformId: platformRecord.id,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        accountId: platformUserId,
-        accountName: platformUsername,
-        scopes: platforms[platform].scopes,
-        isValid: true,
-        parentConnectionId
-      }
-    });
-  }
+    const data = {
+      userId,
+      platformId: platformRecord.id,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accountId: platformUserId,
+      accountName: platformUsername,
+      scopes: platforms[platform].scopes,
+      isValid: true
+    };
 
-  // Save Facebook pages as channels
-  static async saveFacebookPages(
-    userId: string,
-    parentConnectionId: string,
-    pages: FacebookPage[]
-  ) {
-    const platformRecord = await prisma.platform.findUnique({
-      where: { code: 'facebook' }
-    });
-
-    if (!platformRecord) {
-      throw new Error('Facebook platform not found');
+    if (parentConnectionId) {
+      (data as any).parentConnectionId = parentConnectionId;
     }
 
-    const channels = await Promise.all(
-      pages.map(page =>
-        prisma.platformConnection.create({
-          data: {
-            userId,
-            platformId: platformRecord.id,
-            accessToken: page.access_token,
-            accountId: page.id,
-            accountName: page.name,
-            scopes: platforms.facebook.scopes,
-            isValid: true,
-            parentConnectionId
-          }
-        })
-      )
-    );
-
-    return channels;
+    return prisma.platformConnection.create({
+      data
+    });
   }
 
   // Get user's connected channels
@@ -255,7 +185,10 @@ export class PlatformService {
   // Disconnect channel
   static async disconnectChannel(channelId: string, userId: string) {
     const channel = await prisma.platformConnection.findFirst({
-      where: { id: channelId, userId }
+      where: { id: channelId, userId },
+      include: {
+        platform: true
+      }
     });
 
     if (!channel) {
@@ -264,10 +197,18 @@ export class PlatformService {
 
     // If this is a parent connection (e.g., Facebook user account),
     // also disconnect all child channels (e.g., Facebook pages)
-    if (!channel.parentConnectionId) {
+    if (!(channel as any).parentConnectionId) {
       await prisma.platformConnection.deleteMany({
-        where: { parentConnectionId: channelId }
+        where: { parentConnectionId: channelId } as any
       });
+    }
+
+    // Revoke the token if possible
+    try {
+      const handler = PlatformHandlerFactory.getHandler(channel.platform.code as PlatformCode);
+      await handler.revokeToken(channel.accessToken);
+    } catch (error) {
+      console.error('Failed to revoke token:', error);
     }
 
     return prisma.platformConnection.delete({
@@ -305,7 +246,7 @@ export class PlatformService {
         name: channel.platform.name,
         icon: channel.platform.icon
       },
-      isParentConnection: !channel.parentConnectionId
+      isParentConnection: !(channel as any).parentConnectionId
     };
   }
 

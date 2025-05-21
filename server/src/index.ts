@@ -10,6 +10,8 @@ import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import './config/passport';
 import platformRoutes from './routes/platform.routes';
+import { jsonBeautify } from './middleware/json-beautify.middleware';
+
 // Initialize Express app
 const app = express();
 
@@ -32,6 +34,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+app.use(jsonBeautify);
 
 // Rate limiting
 const limiter = rateLimit({

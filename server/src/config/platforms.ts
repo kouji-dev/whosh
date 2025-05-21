@@ -73,12 +73,12 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     name: 'TikTok',
     icon: 'tiktok',
     color: '#000000',
-    clientId: '',
-    clientSecret: '',
-    scopes: ['user.info.basic', 'video.publish'],
-    authUrl: 'https://www.tiktok.com/auth/authorize',
-    tokenUrl: 'https://open-api.tiktok.com/oauth/access_token',
-    userInfoUrl: 'https://open-api.tiktok.com/user/info'
+    clientId: socialMediaConfig.tiktok.clientId as string,
+    clientSecret: socialMediaConfig.tiktok.clientSecret as string,
+    scopes: ['user.info.basic', 'user.info.profile', 'video.publish'],
+    authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
+    tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
+    userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/'
   },
   youtube: {
     name: 'YouTube',

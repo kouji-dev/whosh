@@ -3,80 +3,47 @@
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { PlatformIcon } from '@/components/ui/platform-icon';
 
 interface Channel {
   id: string;
   name: string;
-  type: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'pinterest';
+  type: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube';
   icon: string;
 }
-
-const channels: Channel[] = [
-  {
-    id: 'twitter',
-    name: 'Twitter',
-    type: 'twitter',
-    icon: '𝕏',
-  },
-  {
-    id: 'facebook',
-    name: 'Facebook',
-    type: 'facebook',
-    icon: 'f',
-  },
-  {
-    id: 'instagram',
-    name: 'Instagram',
-    type: 'instagram',
-    icon: '📸',
-  },
-  {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    type: 'linkedin',
-    icon: 'in',
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok',
-    type: 'tiktok',
-    icon: '♪',
-  },
-  {
-    id: 'pinterest',
-    name: 'Pinterest',
-    type: 'pinterest',
-    icon: '📌',
-  },
-];
 
 interface ChannelSelectorProps {
   selectedChannels: string[];
   onChannelSelect: (channelId: string) => void;
 }
 
-export function ChannelSelector({
-  selectedChannels,
-  onChannelSelect,
-}: ChannelSelectorProps) {
+export function ChannelSelector({ selectedChannels, onChannelSelect }: ChannelSelectorProps) {
+  const channels: Channel[] = [
+    { id: 'twitter', name: 'Twitter', type: 'twitter', icon: 'twitter' },
+    { id: 'facebook', name: 'Facebook', type: 'facebook', icon: 'facebook' },
+    { id: 'instagram', name: 'Instagram', type: 'instagram', icon: 'instagram' },
+    { id: 'linkedin', name: 'LinkedIn', type: 'linkedin', icon: 'linkedin' },
+    { id: 'tiktok', name: 'TikTok', type: 'tiktok', icon: 'tiktok' },
+    { id: 'youtube', name: 'YouTube', type: 'youtube', icon: 'youtube' },
+  ];
+
   return (
     <div className="flex flex-wrap gap-2">
       {channels.map((channel) => (
         <Button
           key={channel.id}
-          variant="outline"
+          variant={selectedChannels.includes(channel.id) ? 'default' : 'outline'}
           size="sm"
-          className={cn(
-            'relative h-8 w-8 p-0',
-            selectedChannels.includes(channel.id) && 'border-primary'
-          )}
           onClick={() => onChannelSelect(channel.id)}
+          className={cn(
+            'flex items-center gap-2',
+            selectedChannels.includes(channel.id) && 'bg-primary text-primary-foreground'
+          )}
         >
-          <span className="text-lg">{channel.icon}</span>
+          <PlatformIcon platform={channel.type} size={16} />
+          {channel.name}
           {selectedChannels.includes(channel.id) && (
-            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-              <Check className="h-3 w-3" />
-            </span>
+            <Check className="h-4 w-4" />
           )}
         </Button>
       ))}

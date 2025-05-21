@@ -6,7 +6,7 @@ import config from '../config';
 interface Channel {
   id: string;
   platformId: string;
-  platformUsername: string;
+  accountName: string | null;
   platform: {
     name: string;
     icon: string;
@@ -30,8 +30,8 @@ export class PlatformController {
   static async getAuthUrl(req: Request, res: Response) {
     try {
       const { platform } = req.params as { platform: PlatformCode };
-      const redirectUri = `${config.server.apiUrl}/api/channels/${platform}/callback`;
-      const authUrl = PlatformService.getAuthUrl(platform, redirectUri);
+      const redirectUri = `${config.server.apiUrl}/api/platforms/channels/${platform}/callback`;
+      const authUrl = PlatformService.getAuthUrl(platform, redirectUri, req.user!.id);
       console.log('authUrl', {authUrl});
       res.json({ authUrl });
     } catch (error) {
@@ -43,55 +43,45 @@ export class PlatformController {
   static async handleCallback(req: Request, res: Response) {
     try {
       const { platform } = req.params as { platform: PlatformCode };
-      const { code } = req.query;
-      const redirectUri = `${config.server.apiUrl}/api/channels/${platform}/callback`;
+      const { code, state } = req.query;
+      const redirectUri = `${config.server.apiUrl}/api/platforms/channels/${platform}/callback`;
 
       if (!code || typeof code !== 'string') {
-        return res.status(400).json({ error: 'Invalid authorization code' });
+        return res.redirect(`${config.server.clientUrl}/dashboard/channels?error=invalid_code`);
       }
 
-      const tokens = await PlatformService.handleCallback(platform, code, redirectUri);
-      
-      // Get user info from platform
-      const userInfo = await PlatformService.getPlatformUserInfo(platform, tokens.accessToken);
-      
-      // For Facebook, we need to handle pages
-      if (platform === 'facebook') {
-        // First save the parent connection (user account)
-        const parentConnection = await PlatformService.saveConnectedChannel(
-          req.user!.id,
-          platform,
-          tokens,
-          userInfo.id,
-          userInfo.username
-        );
+      // Decode the state to get the userId
+      let userId: string | undefined;
+      if (state && typeof state === 'string') {
+        try {
+          const stateObj = JSON.parse(Buffer.from(state, 'base64url').toString());
+          userId = stateObj.userId;
+        } catch (error) {
+          console.error('Failed to decode state:', error);
+        }
+      }
 
-        // Get available pages
-        const pages = await PlatformService.getFacebookPages(tokens.accessToken);
+      if (!userId) {
+        return res.redirect(`${config.server.clientUrl}/dashboard/channels?error=invalid_state`);
+      }
 
-        // Save pages as channels
-        await PlatformService.saveFacebookPages(req.user!.id, parentConnection.id, pages);
+      const result = await PlatformService.handleCallback(
+        platform,
+        code,
+        redirectUri,
+        state as string,
+        userId,
+        config.server.clientUrl
+      );
 
-        // Redirect to frontend with success and pages info
-        res.redirect(
-          `${config.server.clientUrl}/settings/channels?success=true&platform=facebook&pages=${pages.length}`
-        );
+      if ('redirectUrl' in result) {
+        res.redirect(result.redirectUrl);
       } else {
-        // For other platforms, just save the single connection
-        await PlatformService.saveConnectedChannel(
-          req.user!.id,
-          platform,
-          tokens,
-          userInfo.id,
-          userInfo.username
-        );
-
-        // Redirect to frontend with success
-        res.redirect(`${config.server.clientUrl}/settings/channels?success=true`);
+        res.redirect(`${config.server.clientUrl}/dashboard/channels?error=redirect_failed`);
       }
     } catch (error) {
-      console.error('Channel callback error:', error);
-      res.redirect(`${config.server.clientUrl}/settings/channels?error=connection_failed`);
+      console.error('Callback error:', error);
+      res.redirect(`${config.server.clientUrl}/dashboard/channels?error=callback_failed`);
     }
   }
 
@@ -100,16 +90,21 @@ export class PlatformController {
     try {
       const channels = await PlatformService.getConnectedChannels(req.user!.id);
       // Ensure the response is serializable
-      res.json(channels.map((channel: Channel) => ({
+      res.json(channels.map(channel => ({
         id: channel.id,
         platformId: channel.platformId,
-        platformUsername: channel.platformUsername,
+        accountName: channel.accountName,
+        accountId: channel.accountId,
         platform: {
           name: channel.platform.name,
           icon: channel.platform.icon,
-          code: channel.platform.code
+          code: channel.platform.code,
+          color: channel.platform.color
         },
-        isParentConnection: channel.isParentConnection
+        lastSync: channel.lastSync,
+        isValid: channel.isValid,
+        isParentConnection: !(channel as any).parentConnectionId,
+        avatarUrl: channel.profileImage || null
       })));
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch connected channels' });
