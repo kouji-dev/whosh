@@ -1,1 +1,1 @@
-export const WHOSH_TOKEN = 'whosh_token'; 
+export const TIKK_TOKEN = 'tikk_token'; 

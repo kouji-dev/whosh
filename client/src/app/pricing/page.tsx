@@ -67,7 +67,7 @@ export default function PricingPage() {
       <header className="flex h-16 items-center justify-between border-b px-6">
         <div className="flex items-center space-x-2">
           <Link href="/" className="text-xl font-bold">
-            Whosh
+            Tikk
           </Link>
         </div>
         <div className="flex items-center space-x-4">
@@ -187,7 +187,7 @@ export default function PricingPage() {
             </a>
             . The source code is available on{' '}
             <a
-              href="https://github.com/yourusername/whosh"
+              href="https://github.com/yourusername/tikk"
               target="_blank"
               rel="noreferrer"
               className="font-medium underline underline-offset-4"

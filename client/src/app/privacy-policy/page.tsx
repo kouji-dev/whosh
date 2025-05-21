@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
       <header className="flex h-16 items-center justify-between border-b px-6">
         <div className="flex items-center space-x-2">
           <Link href="/" className="text-xl font-bold">
-            Whosh
+            Tikk
           </Link>
         </div>
         <div className="flex items-center space-x-4">
@@ -32,7 +32,7 @@ export default function PrivacyPolicyPage() {
           
           <div className="prose prose-gray max-w-none">
             <p className="mb-6">
-              This Privacy Policy is prepared by Whosh and whose registered address is Whosh ("We") are committed to protecting and preserving the privacy of our visitors when visiting our site or communicating electronically with us.
+              This Privacy Policy is prepared by Tikk and whose registered address is Tikk ("We") are committed to protecting and preserving the privacy of our visitors when visiting our site or communicating electronically with us.
             </p>
 
             <p className="mb-6">
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
             </a>
             . The source code is available on{' '}
             <a
-              href="https://github.com/yourusername/whosh"
+              href="https://github.com/yourusername/tikk"
               target="_blank"
               rel="noreferrer"
               className="font-medium underline underline-offset-4"

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '@/config/env';
-import { WHOSH_TOKEN } from './constants';
+import { TIKK_TOKEN } from './constants';
 
 const apiClient = axios.create({
   baseURL: config.apiUrl,
@@ -12,7 +12,7 @@ const apiClient = axios.create({
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(WHOSH_TOKEN);
+    const token = localStorage.getItem(TIKK_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,7 +32,7 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized errors
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      localStorage.removeItem(WHOSH_TOKEN);
+      localStorage.removeItem(TIKK_TOKEN);
       window.location.href = '/login';
     }
 

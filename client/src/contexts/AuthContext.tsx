@@ -1,7 +1,7 @@
 "use client"
 import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { WHOSH_TOKEN } from '@/lib/constants';
+import { TIKK_TOKEN } from '@/lib/constants';
 import { config } from '@/config/env';
 import axios from '@/lib/axios';
 
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyUser = async () => {
     try {
-      const token = localStorage.getItem(WHOSH_TOKEN);
+      const token = localStorage.getItem(TIKK_TOKEN);
       if (!token) {
         setUser(null);
         return;
@@ -41,12 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         return data.user;
       } else {
-        localStorage.removeItem(WHOSH_TOKEN);
+        localStorage.removeItem(TIKK_TOKEN);
         setUser(null);
         return null;
       }
     } catch (error) {
-      localStorage.removeItem(WHOSH_TOKEN);
+      localStorage.removeItem(TIKK_TOKEN);
       setUser(null);
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (credentials: { email: string; password: string; rememberMe?: boolean }) => {
     const { data } = await axios.post('/api/auth/login', credentials);
-    localStorage.setItem(WHOSH_TOKEN, data.token);
+    localStorage.setItem(TIKK_TOKEN, data.token);
     setUser(data.user);
   };
 
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [config.apiUrl]);
 
   const signOut = () => {
-    localStorage.removeItem(WHOSH_TOKEN);
+    localStorage.removeItem(TIKK_TOKEN);
     setUser(null);
     router.push('/login');
   };

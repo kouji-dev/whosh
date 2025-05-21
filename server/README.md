@@ -1,6 +1,6 @@
-# Whosh Server
+# Tikk Server
 
-Backend server for the Whosh social media management application.
+Backend server for the Tikk social media management application.
 
 ## Environment Setup
 

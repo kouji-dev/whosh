@@ -35,7 +35,7 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-between border-b px-6">
         <div className="flex items-center space-x-2">
-          <span className="text-xl font-bold">Whosh</span>
+          <span className="text-xl font-bold">Tikk</span>
         </div>
         <div className="flex items-center space-x-4">
           {isLoading ? (
@@ -149,7 +149,7 @@ export default function LandingPage() {
             </a>
             . The source code is available on{' '}
             <a
-              href="https://github.com/yourusername/whosh"
+              href="https://github.com/yourusername/tikk"
               target="_blank"
               rel="noreferrer"
               className="font-medium underline underline-offset-4"

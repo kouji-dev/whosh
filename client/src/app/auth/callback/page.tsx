@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WHOSH_TOKEN } from '@/lib/constants';
+import { TIKK_TOKEN } from '@/lib/constants';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -28,7 +28,7 @@ function AuthCallbackContent() {
 
     if (token) {
       // Store token and verify user
-      localStorage.setItem(WHOSH_TOKEN, token);
+      localStorage.setItem(TIKK_TOKEN, token);
       verifyUser().then(() => {
         router.replace('/dashboard');
       });

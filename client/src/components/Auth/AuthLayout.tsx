@@ -6,7 +6,7 @@ const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="flex flex-col md:flex-row items-center gap-12">
       <div className="hidden md:block">
         {/* Illustration or logo here */}
-        <img src="/whosh-illustration.svg" alt="Whosh" className="w-80" />
+        <img src="/tikk-illustration.svg" alt="Tikk" className="w-80" />
       </div>
       {children}
     </div>

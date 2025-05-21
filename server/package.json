@@ -1,7 +1,7 @@
 {
-  "name": "@whosh/server",
-  "version": "1.0.0",
-  "description": "Backend server for Whosh social media management app",
+  "name": "@tikk/server",
+  "version": "0.1.0",
+  "description": "Backend server for Tikk social media management app",
   "main": "dist/index.js",
   "private": true,
   "scripts": {
