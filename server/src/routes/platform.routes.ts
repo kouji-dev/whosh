@@ -1,22 +1,21 @@
 import { Router } from 'express';
 import { PlatformController } from '../controllers/platform.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Get available platforms
-router.get('/', authenticate, PlatformController.getPlatforms);
+// Legacy routes (for backward compatibility)
+router.get('/', authenticate, PlatformController.getChannels);
+router.get('/accounts', authenticate, PlatformController.getConnectedChannels);
+router.delete('/accounts/:channelId', authenticate, PlatformController.disconnectChannel);
 
-// Get OAuth URL for platform connection
-router.get('/:platform/auth', authenticate, PlatformController.getAuthUrl);
-
-// Handle OAuth callback
-router.get('/:platform/callback', PlatformController.handleCallback);
-
-// Get user's connected accounts
-router.get('/accounts', authenticate, PlatformController.getConnectedAccounts);
-
-// Disconnect platform account
-router.delete('/accounts/:channelId', authenticate, PlatformController.disconnectAccount);
+// New channel-centric routes
+router.get('/channels', authenticate, PlatformController.getChannels);
+router.get('/channels/:platform/auth', authenticate, PlatformController.getAuthUrl);
+router.get('/channels/:platform/callback', PlatformController.handleCallback);
+router.get('/channels/connected', authenticate, PlatformController.getConnectedChannels);
+router.get('/channels/:channelId/status', authenticate, PlatformController.getChannelStatus);
+router.delete('/channels/:channelId', authenticate, PlatformController.disconnectChannel);
+router.post('/channels/:channelId/sync', authenticate, PlatformController.syncChannelData);
 
 export default router; 

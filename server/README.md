@@ -1,6 +1,6 @@
-# Magnet Server
+# Whosh Server
 
-Backend server for the Magnet social media management application.
+Backend server for the Whosh social media management application.
 
 ## Environment Setup
 

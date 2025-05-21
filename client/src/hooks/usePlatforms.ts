@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/api-client';
+import apiClient from '@/lib/axios';
 
 interface Platform {
   name: string;
@@ -25,7 +25,7 @@ export function usePlatforms() {
   const { data: platforms, isLoading: isLoadingPlatforms } = useQuery<Platform[]>({
     queryKey: ['platforms'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/platforms');
+      const { data } = await apiClient.get('api/platforms');
       return data;
     },
   });
@@ -34,7 +34,7 @@ export function usePlatforms() {
   const { data: connectedAccounts, isLoading: isLoadingAccounts } = useQuery<ConnectedAccount[]>({
     queryKey: ['connectedAccounts'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/platforms/accounts');
+      const { data } = await apiClient.get('api/platforms/accounts');
       return data;
     },
   });

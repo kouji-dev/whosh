@@ -10,6 +10,8 @@ export const serverConfig = {
   port: process.env.PORT || 4000,
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  apiUrl: process.env.API_URL,
+  clientUrl: process.env.CLIENT_URL,
 };
 
 // Database configuration
@@ -38,20 +40,28 @@ export const googleConfig = {
 // Social Media API configuration
 export const socialMediaConfig = {
   twitter: {
-    apiKey: process.env.TWITTER_API_KEY,
-    apiSecret: process.env.TWITTER_API_SECRET,
+    clientId: process.env.TWITTER_CLIENT_ID,
+    clientSecret: process.env.TWITTER_CLIENT_SECRET,
   },
   facebook: {
-    appId: process.env.FACEBOOK_APP_ID,
-    appSecret: process.env.FACEBOOK_APP_SECRET,
+    clientId: process.env.FACEBOOK_CLIENT_ID,
+    clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
   },
   instagram: {
-    appId: process.env.INSTAGRAM_APP_ID,
-    appSecret: process.env.INSTAGRAM_APP_SECRET,
+    clientId: process.env.INSTAGRAM_CLIENT_ID,
+    clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
   },
   linkedin: {
     clientId: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+  },
+  tiktok: {
+    clientId: process.env.TIKTOK_CLIENT_ID,
+    clientSecret: process.env.TIKTOK_CLIENT_SECRET,
+  },
+  youtube: {
+    clientId: process.env.YOUTUBE_CLIENT_ID,
+    clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
   },
 };
 
@@ -60,8 +70,21 @@ const validateConfig = () => {
   const requiredVars = [
     { name: 'DATABASE_URL', value: dbConfig.url },
     { name: 'JWT_SECRET', value: jwtConfig.secret },
-    { name: 'GOOGLE_CLIENT_ID', value: googleConfig.clientId },
-    { name: 'GOOGLE_CLIENT_SECRET', value: googleConfig.clientSecret },
+    { name: 'API_URL', value: serverConfig.apiUrl },
+    //{ name: 'CLIENT_URL', value: serverConfig.clientUrl },
+    // Platform OAuth requirements
+    // { name: 'TWITTER_CLIENT_ID', value: socialMediaConfig.twitter.clientId },
+    // { name: 'TWITTER_CLIENT_SECRET', value: socialMediaConfig.twitter.clientSecret },
+     { name: 'FACEBOOK_CLIENT_ID', value: socialMediaConfig.facebook.clientId },
+     { name: 'FACEBOOK_CLIENT_SECRET', value: socialMediaConfig.facebook.clientSecret },
+    // { name: 'INSTAGRAM_CLIENT_ID', value: socialMediaConfig.instagram.clientId },
+    // { name: 'INSTAGRAM_CLIENT_SECRET', value: socialMediaConfig.instagram.clientSecret },
+    // { name: 'LINKEDIN_CLIENT_ID', value: socialMediaConfig.linkedin.clientId },
+    // { name: 'LINKEDIN_CLIENT_SECRET', value: socialMediaConfig.linkedin.clientSecret },
+    // { name: 'TIKTOK_CLIENT_ID', value: socialMediaConfig.tiktok.clientId },
+    // { name: 'TIKTOK_CLIENT_SECRET', value: socialMediaConfig.tiktok.clientSecret },
+    // { name: 'YOUTUBE_CLIENT_ID', value: socialMediaConfig.youtube.clientId },
+    // { name: 'YOUTUBE_CLIENT_SECRET', value: socialMediaConfig.youtube.clientSecret },
   ];
 
   const missingVars = requiredVars.filter(({ value }) => !value);

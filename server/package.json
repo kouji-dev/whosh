@@ -1,7 +1,7 @@
 {
-  "name": "@magnet/server",
+  "name": "@whosh/server",
   "version": "1.0.0",
-  "description": "Backend server for Magnet social media management app",
+  "description": "Backend server for Whosh social media management app",
   "main": "dist/index.js",
   "private": true,
   "scripts": {
@@ -15,6 +15,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "ts-node prisma/seed.ts",
     "db:setup": "npm run prisma:generate && npm run prisma:migrate",
     "setup": "node scripts/setup-env.js"
   },
@@ -50,7 +51,11 @@
     "@typescript-eslint/parser": "^7.0.2",
     "eslint": "^8.56.0",
     "prisma": "^5.10.2",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
-} 
+}

@@ -1,228 +1,335 @@
 import { PrismaClient } from '@prisma/client';
-import axios from 'axios';
 import { platforms, PlatformCode } from '../config/platforms';
+import { OAuthTokens } from '../types/platform';
+
+interface TokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+}
+
+interface UserInfoResponse {
+  id: string;
+  username?: string;
+  name?: string;
+  email?: string;
+}
+
+interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+  category?: string;
+}
+
+interface Channel {
+  id: string;
+  platformId: string;
+  platform: {
+    code: string;
+    name: string;
+    icon: string;
+    color: string;
+  };
+  accountName: string | null;
+  accountId: string;
+  lastSync: Date | null;
+  isValid: boolean;
+  parentConnectionId?: string; // For channels that belong to a parent connection (e.g., Facebook pages)
+}
 
 const prisma = new PrismaClient();
 
 export class PlatformService {
-  // Get list of available platforms
-  static async getAvailablePlatforms() {
-    return Object.values(platforms).map(platform => ({
-      ...platform,
-      isConnected: false, // This will be updated based on user's connections
+  // Get list of available platform types and user's connected channels
+  static async getAvailableChannels(userId: string) {
+    const connectedChannels = await prisma.platformConnection.findMany({
+      where: { userId },
+      include: {
+        platform: true
+      }
+    });
+
+    // Get all platform types
+    const platformTypes = Object.entries(platforms).map(([code, platform]) => ({
+      code,
+      name: platform.name,
+      icon: platform.icon,
+      color: platform.color,
+      scopes: platform.scopes,
+      authUrl: platform.authUrl,
+      tokenUrl: platform.tokenUrl,
+      userInfoUrl: platform.userInfoUrl,
+      supportsMultipleChannels: code === 'facebook' // Add this flag for platforms that support multiple channels
     }));
+
+    // Get user's connected channels for each platform type
+    const channelsByPlatform = connectedChannels.reduce((acc: Record<string, Channel[]>, channel) => {
+      const platformCode = channel.platform.code;
+      if (!acc[platformCode]) {
+        acc[platformCode] = [];
+      }
+      acc[platformCode].push({
+        id: channel.id,
+        platformId: channel.platformId,
+        platform: {
+          code: channel.platform.code,
+          name: channel.platform.name,
+          icon: channel.platform.icon,
+          color: channel.platform.color
+        },
+        accountName: channel.accountName,
+        accountId: channel.accountId,
+        lastSync: channel.lastSync,
+        isValid: channel.isValid,
+        parentConnectionId: channel.parentConnectionId
+      });
+      return acc;
+    }, {});
+
+    return {
+      platformTypes,
+      channels: channelsByPlatform
+    };
   }
 
-  // Get OAuth URL for platform connection
+  // Get OAuth URL for channel connection
   static getAuthUrl(platform: PlatformCode, redirectUri: string): string {
     const platformConfig = platforms[platform];
-    const clientId = process.env[`${platform.toUpperCase()}_CLIENT_ID`];
-    
-    switch (platform) {
-      case 'instagram':
-      case 'facebook':
-        return `https://www.facebook.com/${platformConfig.apiVersion}/dialog/oauth?` +
-          `client_id=${clientId}&` +
-          `redirect_uri=${redirectUri}&` +
-          `scope=${platformConfig.scopes.join(',')}&` +
-          `response_type=code&` +
-          `state=${platform}`;
-      
-      case 'tiktok':
-        return 'https://www.tiktok.com/auth/authorize/?' +
-          `client_key=${clientId}&` +
-          `scope=${platformConfig.scopes.join(',')}&` +
-          `response_type=code&` +
-          `redirect_uri=${redirectUri}&` +
-          `state=${platform}`;
-      
-      case 'youtube':
-        return 'https://accounts.google.com/o/oauth2/v2/auth?' +
-          `client_id=${clientId}&` +
-          `redirect_uri=${redirectUri}&` +
-          `response_type=code&` +
-          `scope=${platformConfig.scopes.join(' ')}&` +
-          `access_type=offline&` +
-          `state=${platform}`;
-      
-      default:
-        throw new Error(`Unsupported platform: ${platform}`);
-    }
+    const scopes = platformConfig.scopes.join(' ');
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: platformConfig.clientId,
+      redirect_uri: redirectUri,
+      scope: scopes
+    });
+
+    return `${platformConfig.authUrl}?${params.toString()}`;
   }
 
   // Handle OAuth callback and token exchange
   static async handleCallback(platform: PlatformCode, code: string, redirectUri: string) {
-    const clientId = process.env[`${platform.toUpperCase()}_CLIENT_ID`];
-    const clientSecret = process.env[`${platform.toUpperCase()}_CLIENT_SECRET`];
-    
-    let tokens;
-    switch (platform) {
-      case 'instagram':
-      case 'facebook':
-        tokens = await this.exchangeFacebookToken(code, clientId!, clientSecret!, redirectUri);
-        break;
-      
-      case 'tiktok':
-        tokens = await this.exchangeTikTokToken(code, clientId!, clientSecret!, redirectUri);
-        break;
-      
-      case 'youtube':
-        tokens = await this.exchangeYouTubeToken(code, clientId!, clientSecret!, redirectUri);
-        break;
-      
-      default:
-        throw new Error(`Unsupported platform: ${platform}`);
+    const platformConfig = platforms[platform];
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: platformConfig.clientId,
+      client_secret: platformConfig.clientSecret
+    });
+
+    const response = await fetch(platformConfig.tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to exchange code for token: ${response.statusText}`);
     }
 
-    return tokens;
+    const data = await response.json() as TokenResponse;
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in
+    };
   }
 
   // Get user info from platform
   static async getPlatformUserInfo(platform: PlatformCode, accessToken: string) {
-    switch (platform) {
-      case 'instagram':
-      case 'facebook':
-        return this.getFacebookUserInfo(accessToken);
-      
-      case 'tiktok':
-        return this.getTikTokUserInfo(accessToken);
-      
-      case 'youtube':
-        return this.getYouTubeUserInfo(accessToken);
-      
-      default:
-        throw new Error(`Unsupported platform: ${platform}`);
+    const platformConfig = platforms[platform];
+    const response = await fetch(platformConfig.userInfoUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get user info: ${response.statusText}`);
     }
-  }
 
-  // Get Facebook/Instagram user info
-  private static async getFacebookUserInfo(accessToken: string) {
-    const response = await axios.get('https://graph.facebook.com/me', {
-      params: {
-        access_token: accessToken,
-        fields: 'id,name,username',
-      },
-    });
-
+    const data = await response.json() as UserInfoResponse;
     return {
-      id: response.data.id,
-      username: response.data.username || response.data.name,
+      id: data.id,
+      username: data.username || data.name || data.email
     };
   }
 
-  // Get TikTok user info
-  private static async getTikTokUserInfo(accessToken: string) {
-    const response = await axios.get('https://open-api.tiktok.com/user/info/', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+  // Get Facebook pages for a user
+  static async getFacebookPages(accessToken: string): Promise<FacebookPage[]> {
+    const response = await fetch(
+      `https://graph.facebook.com/v22.0/me/accounts?access_token=${accessToken}`
+    );
 
-    return {
-      id: response.data.data.user.open_id,
-      username: response.data.data.user.unique_id,
-    };
+    if (!response.ok) {
+      throw new Error('Failed to fetch Facebook pages');
+    }
+
+    const data = await response.json();
+    return data.data as FacebookPage[];
   }
 
-  // Get YouTube user info
-  private static async getYouTubeUserInfo(accessToken: string) {
-    const response = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
-      params: {
-        part: 'snippet',
-        mine: true,
-      },
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
+  // Save connected channel
+  static async saveConnectedChannel(
+    userId: string,
+    platform: PlatformCode,
+    tokens: { accessToken: string; refreshToken: string; expiresIn: number },
+    platformUserId: string,
+    platformUsername: string,
+    parentConnectionId?: string
+  ) {
+    // First, ensure the platform exists
+    const platformRecord = await prisma.platform.upsert({
+      where: { code: platform },
+      update: {},
+      create: {
+        code: platform,
+        name: platforms[platform].name,
+        icon: platforms[platform].icon,
+        color: platforms[platform].color
+      }
     });
 
-    return {
-      id: response.data.items[0].id,
-      username: response.data.items[0].snippet.title,
-    };
-  }
-
-  // Exchange authorization code for access token (Facebook/Instagram)
-  private static async exchangeFacebookToken(code: string, clientId: string, clientSecret: string, redirectUri: string) {
-    const response = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
-      params: {
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        code,
-      },
-    });
-
-    return {
-      accessToken: response.data.access_token,
-      expiresIn: response.data.expires_in,
-    };
-  }
-
-  // Exchange authorization code for access token (TikTok)
-  private static async exchangeTikTokToken(code: string, clientId: string, clientSecret: string, redirectUri: string) {
-    const response = await axios.post('https://open-api.tiktok.com/oauth/access_token/', {
-      client_key: clientId,
-      client_secret: clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-    });
-
-    return {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresIn: response.data.expires_in,
-    };
-  }
-
-  // Exchange authorization code for access token (YouTube)
-  private static async exchangeYouTubeToken(code: string, clientId: string, clientSecret: string, redirectUri: string) {
-    const response = await axios.post('https://oauth2.googleapis.com/token', {
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-    });
-
-    return {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresIn: response.data.expires_in,
-    };
-  }
-
-  // Save connected platform account
-  static async saveConnectedAccount(userId: string, platform: PlatformCode, tokens: any, platformUserId: string, username: string) {
-    return prisma.channel.create({
+    return prisma.platformConnection.create({
       data: {
-        platformId: platform,
         userId,
+        platformId: platformRecord.id,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        tokenExpires: tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000) : null,
-        platformUserId,
-        platformUsername: username,
-      },
+        accountId: platformUserId,
+        accountName: platformUsername,
+        scopes: platforms[platform].scopes,
+        isValid: true,
+        parentConnectionId
+      }
     });
   }
 
-  // Get user's connected accounts
-  static async getConnectedAccounts(userId: string) {
-    return prisma.channel.findMany({
+  // Save Facebook pages as channels
+  static async saveFacebookPages(
+    userId: string,
+    parentConnectionId: string,
+    pages: FacebookPage[]
+  ) {
+    const platformRecord = await prisma.platform.findUnique({
+      where: { code: 'facebook' }
+    });
+
+    if (!platformRecord) {
+      throw new Error('Facebook platform not found');
+    }
+
+    const channels = await Promise.all(
+      pages.map(page =>
+        prisma.platformConnection.create({
+          data: {
+            userId,
+            platformId: platformRecord.id,
+            accessToken: page.access_token,
+            accountId: page.id,
+            accountName: page.name,
+            scopes: platforms.facebook.scopes,
+            isValid: true,
+            parentConnectionId
+          }
+        })
+      )
+    );
+
+    return channels;
+  }
+
+  // Get user's connected channels
+  static async getConnectedChannels(userId: string) {
+    return prisma.platformConnection.findMany({
       where: { userId },
-      include: { platform: true },
+      include: {
+        platform: true
+      }
     });
   }
 
-  // Disconnect platform account
-  static async disconnectAccount(channelId: string, userId: string) {
-    return prisma.channel.delete({
+  // Disconnect channel
+  static async disconnectChannel(channelId: string, userId: string) {
+    const channel = await prisma.platformConnection.findFirst({
+      where: { id: channelId, userId }
+    });
+
+    if (!channel) {
+      throw new Error('Channel not found');
+    }
+
+    // If this is a parent connection (e.g., Facebook user account),
+    // also disconnect all child channels (e.g., Facebook pages)
+    if (!channel.parentConnectionId) {
+      await prisma.platformConnection.deleteMany({
+        where: { parentConnectionId: channelId }
+      });
+    }
+
+    return prisma.platformConnection.delete({
       where: {
         id: channelId,
-        userId, // Ensure user owns the channel
+        userId
+      }
+    });
+  }
+
+  // Get channel status
+  static async getChannelStatus(userId: string, channelId: string) {
+    const channel = await prisma.platformConnection.findFirst({
+      where: {
+        id: channelId,
+        userId,
+        isValid: true
       },
+      include: {
+        platform: true
+      }
+    });
+
+    if (!channel) {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      accountName: channel.accountName,
+      accountId: channel.accountId,
+      lastSync: channel.lastSync,
+      platform: {
+        code: channel.platform.code,
+        name: channel.platform.name,
+        icon: channel.platform.icon
+      },
+      isParentConnection: !channel.parentConnectionId
+    };
+  }
+
+  // Sync channel data
+  static async syncChannelData(userId: string, channelId: string) {
+    const channel = await prisma.platformConnection.findFirst({
+      where: {
+        id: channelId,
+        userId,
+        isValid: true
+      }
+    });
+
+    if (!channel) {
+      throw new Error('No valid channel found');
+    }
+
+    // TODO: Implement platform-specific data sync
+    // This will be implemented for each platform separately
+
+    // Update last sync time
+    await prisma.platformConnection.update({
+      where: { id: channel.id },
+      data: { lastSync: new Date() }
     });
   }
 } 

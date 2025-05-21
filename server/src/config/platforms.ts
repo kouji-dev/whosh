@@ -1,36 +1,94 @@
-export const platforms = {
-  instagram: {
-    name: 'Instagram',
-    code: 'instagram',
-    icon: 'instagram',
-    authType: 'oauth2',
-    scopes: ['instagram_basic', 'instagram_content_publish', 'pages_show_list', 'pages_read_engagement'],
-    apiVersion: 'v18.0',
+import { socialMediaConfig } from './index';
+
+export type PlatformCode = 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube';
+
+export interface PlatformConfig {
+  name: string;
+  icon: string;
+  color: string;
+  clientId: string;
+  clientSecret: string;
+  apiVersion?: string;
+  scopes: string[];
+  authUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+}
+
+export const platforms: Record<PlatformCode, PlatformConfig> = {
+  twitter: {
+    name: 'Twitter',
+    icon: 'twitter',
+    color: '#1DA1F2',
+    clientId: '',
+    clientSecret: '',
+    apiVersion: '2',
+    scopes: ['tweet.read', 'tweet.write', 'users.read'],
+    authUrl: 'https://twitter.com/i/oauth2/authorize',
+    tokenUrl: 'https://api.twitter.com/2/oauth2/token',
+    userInfoUrl: 'https://api.twitter.com/2/users/me'
   },
   facebook: {
     name: 'Facebook',
-    code: 'facebook',
     icon: 'facebook',
-    authType: 'oauth2',
-    scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+    color: '#1877F2',
+    clientId: socialMediaConfig.facebook.clientId as string,
+    clientSecret: socialMediaConfig.facebook.clientSecret as string,
+    apiVersion: 'v22.0',
+    scopes: [
+      'pages_show_list',
+      'pages_manage_metadata',
+      'pages_manage_posts',
+      'pages_read_engagement',
+      'pages_manage_engagement'
+    ],
+    authUrl: 'https://www.facebook.com/v22.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v22.0/oauth/access_token',
+    userInfoUrl: 'https://graph.facebook.com/v22.0/me'
+  },
+  instagram: {
+    name: 'Instagram',
+    icon: 'instagram',
+    color: '#E4405F',
+    clientId: '',
+    clientSecret: '',
     apiVersion: 'v18.0',
+    scopes: ['instagram_basic', 'instagram_content_publish'],
+    authUrl: 'https://api.instagram.com/oauth/authorize',
+    tokenUrl: 'https://api.instagram.com/oauth/access_token',
+    userInfoUrl: 'https://graph.instagram.com/me'
+  },
+  linkedin: {
+    name: 'LinkedIn',
+    icon: 'linkedin',
+    color: '#0A66C2',
+    clientId: '',
+    clientSecret: '',
+    scopes: ['r_liteprofile', 'w_member_social'],
+    authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
+    tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
+    userInfoUrl: 'https://api.linkedin.com/v2/me'
   },
   tiktok: {
     name: 'TikTok',
-    code: 'tiktok',
     icon: 'tiktok',
-    authType: 'oauth2',
-    scopes: ['user.info.basic', 'video.publish', 'video.list'],
-    apiVersion: 'v2',
+    color: '#000000',
+    clientId: '',
+    clientSecret: '',
+    scopes: ['user.info.basic', 'video.publish'],
+    authUrl: 'https://www.tiktok.com/auth/authorize',
+    tokenUrl: 'https://open-api.tiktok.com/oauth/access_token',
+    userInfoUrl: 'https://open-api.tiktok.com/user/info'
   },
   youtube: {
     name: 'YouTube',
-    code: 'youtube',
     icon: 'youtube',
-    authType: 'oauth2',
-    scopes: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'],
-    apiVersion: 'v3',
-  },
-} as const;
-
-export type PlatformCode = keyof typeof platforms; 
+    color: '#FF0000',
+    clientId: '',
+    clientSecret: '',
+    scopes: ['https://www.googleapis.com/auth/youtube'],
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    userInfoUrl: 'https://www.googleapis.com/youtube/v3/channels'
+  }
+}; 

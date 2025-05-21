@@ -1,40 +1,38 @@
 import { Request, Response } from 'express';
 import { PlatformService } from '../services/platform.service';
 import { PlatformCode } from '../config/platforms';
+import config from '../config';
 
-interface ConnectedAccount {
+interface Channel {
   id: string;
   platformId: string;
   platformUsername: string;
   platform: {
     name: string;
     icon: string;
+    code: string;
   };
+  isParentConnection?: boolean;
 }
 
 export class PlatformController {
-  // Get list of available platforms
-  static async getPlatforms(req: Request, res: Response) {
+  // Get list of available platform types and user's connected channels
+  static async getChannels(req: Request, res: Response) {
     try {
-      const platforms = await PlatformService.getAvailablePlatforms();
-      // Ensure the response is serializable
-      res.json(platforms.map(platform => ({
-        name: platform.name,
-        code: platform.code,
-        icon: platform.icon,
-        isConnected: platform.isConnected,
-      })));
+      const { platformTypes, channels } = await PlatformService.getAvailableChannels(req.user!.id);
+      res.json({ platformTypes, channels });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch platforms' });
+      res.status(500).json({ error: 'Failed to fetch channels' });
     }
   }
 
-  // Get OAuth URL for platform connection
+  // Get OAuth URL for channel connection
   static async getAuthUrl(req: Request, res: Response) {
     try {
       const { platform } = req.params as { platform: PlatformCode };
-      const redirectUri = `${process.env.API_URL}/api/platforms/${platform}/callback`;
+      const redirectUri = `${config.server.apiUrl}/api/channels/${platform}/callback`;
       const authUrl = PlatformService.getAuthUrl(platform, redirectUri);
+      console.log('authUrl', {authUrl});
       res.json({ authUrl });
     } catch (error) {
       res.status(400).json({ error: 'Invalid platform' });
@@ -46,7 +44,7 @@ export class PlatformController {
     try {
       const { platform } = req.params as { platform: PlatformCode };
       const { code } = req.query;
-      const redirectUri = `${process.env.API_URL}/api/platforms/${platform}/callback`;
+      const redirectUri = `${config.server.apiUrl}/api/channels/${platform}/callback`;
 
       if (!code || typeof code !== 'string') {
         return res.status(400).json({ error: 'Invalid authorization code' });
@@ -57,50 +55,97 @@ export class PlatformController {
       // Get user info from platform
       const userInfo = await PlatformService.getPlatformUserInfo(platform, tokens.accessToken);
       
-      // Save connected account
-      const channel = await PlatformService.saveConnectedAccount(
-        req.user!.id,
-        platform,
-        tokens,
-        userInfo.id,
-        userInfo.username
-      );
+      // For Facebook, we need to handle pages
+      if (platform === 'facebook') {
+        // First save the parent connection (user account)
+        const parentConnection = await PlatformService.saveConnectedChannel(
+          req.user!.id,
+          platform,
+          tokens,
+          userInfo.id,
+          userInfo.username
+        );
 
-      // Redirect to frontend with success
-      res.redirect(`${process.env.CLIENT_URL}/settings/connections?success=true`);
+        // Get available pages
+        const pages = await PlatformService.getFacebookPages(tokens.accessToken);
+
+        // Save pages as channels
+        await PlatformService.saveFacebookPages(req.user!.id, parentConnection.id, pages);
+
+        // Redirect to frontend with success and pages info
+        res.redirect(
+          `${config.server.clientUrl}/settings/channels?success=true&platform=facebook&pages=${pages.length}`
+        );
+      } else {
+        // For other platforms, just save the single connection
+        await PlatformService.saveConnectedChannel(
+          req.user!.id,
+          platform,
+          tokens,
+          userInfo.id,
+          userInfo.username
+        );
+
+        // Redirect to frontend with success
+        res.redirect(`${config.server.clientUrl}/settings/channels?success=true`);
+      }
     } catch (error) {
-      console.error('Platform callback error:', error);
-      res.redirect(`${process.env.CLIENT_URL}/settings/connections?error=connection_failed`);
+      console.error('Channel callback error:', error);
+      res.redirect(`${config.server.clientUrl}/settings/channels?error=connection_failed`);
     }
   }
 
-  // Get user's connected accounts
-  static async getConnectedAccounts(req: Request, res: Response) {
+  // Get user's connected channels
+  static async getConnectedChannels(req: Request, res: Response) {
     try {
-      const accounts = await PlatformService.getConnectedAccounts(req.user!.id);
+      const channels = await PlatformService.getConnectedChannels(req.user!.id);
       // Ensure the response is serializable
-      res.json(accounts.map((account: ConnectedAccount) => ({
-        id: account.id,
-        platformId: account.platformId,
-        platformUsername: account.platformUsername,
+      res.json(channels.map((channel: Channel) => ({
+        id: channel.id,
+        platformId: channel.platformId,
+        platformUsername: channel.platformUsername,
         platform: {
-          name: account.platform.name,
-          icon: account.platform.icon,
+          name: channel.platform.name,
+          icon: channel.platform.icon,
+          code: channel.platform.code
         },
+        isParentConnection: channel.isParentConnection
       })));
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch connected accounts' });
+      res.status(500).json({ error: 'Failed to fetch connected channels' });
     }
   }
 
-  // Disconnect platform account
-  static async disconnectAccount(req: Request, res: Response) {
+  // Disconnect channel
+  static async disconnectChannel(req: Request, res: Response) {
     try {
       const { channelId } = req.params;
-      await PlatformService.disconnectAccount(channelId, req.user!.id);
-      res.json({ message: 'Account disconnected successfully' });
+      await PlatformService.disconnectChannel(channelId, req.user!.id);
+      res.json({ message: 'Channel disconnected successfully' });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to disconnect account' });
+      res.status(500).json({ error: 'Failed to disconnect channel' });
+    }
+  }
+
+  // Get channel status
+  static async getChannelStatus(req: Request, res: Response) {
+    try {
+      const { channelId } = req.params;
+      const status = await PlatformService.getChannelStatus(req.user!.id, channelId);
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get channel status' });
+    }
+  }
+
+  // Sync channel data
+  static async syncChannelData(req: Request, res: Response) {
+    try {
+      const { channelId } = req.params;
+      await PlatformService.syncChannelData(req.user!.id, channelId);
+      res.json({ message: 'Channel data synced successfully' });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to sync channel data' });
     }
   }
 } 

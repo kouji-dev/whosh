@@ -1,28 +1,46 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MAGNET_TOKEN } from '@/lib/constants';
+import { WHOSH_TOKEN } from '@/lib/constants';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { verifyUser } = useAuth();
 
   useEffect(() => {
     const token = searchParams.get('token');
+    const error = searchParams.get('error');
+
+    console.log('Callback Debug:', {
+      token,
+      error
+    });
+
+    if (error) {
+      router.replace(`/login?error=${error}`);
+      return;
+    }
+
     if (token) {
-      // Store token in localStorage
-      localStorage.setItem(MAGNET_TOKEN, token);
-      // Optionally: You can also trigger a user fetch here if you want
-      router.replace('/dashboard'); // Redirect to dashboard or home
+      // Store token and verify user
+      localStorage.setItem(WHOSH_TOKEN, token);
+      verifyUser().then(() => {
+        router.replace('/dashboard');
+      });
     } else {
-      // If no token, redirect to login with error
       router.replace('/login?error=oauth_failed');
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, verifyUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-lg text-brown">Signing you in...</div>
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-lg text-muted-foreground">Signing you in...</div>
+      </div>
     </div>
   );
 } 

@@ -1,15 +1,21 @@
 'use client';
 import './globals.css';
-import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { AuthProvider } from '@/context/AuthContext';
-import { Toaster } from 'sonner';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { Toaster } from '@/components/ui/toaster';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: false,
+    },
+  },
+});
 
 export default function RootLayout({
   children,
@@ -17,14 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             {children}
             <Toaster />
-            <ReactQueryDevtools initialIsOpen={false} />
           </AuthProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </body>
     </html>

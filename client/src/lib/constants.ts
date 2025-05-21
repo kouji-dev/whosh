@@ -1,1 +1,1 @@
-export const MAGNET_TOKEN = 'magnet_token'; 
+export const WHOSH_TOKEN = 'whosh_token'; 

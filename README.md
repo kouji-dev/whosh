@@ -1,4 +1,4 @@
-# Magnet - Social Media Management Platform
+# Whosh - Social Media Management Platform
 
 A modern social media management platform similar to Buffer and SocialPilot, built with Next.js and Node.js.
 
@@ -32,8 +32,8 @@ A modern social media management platform similar to Buffer and SocialPilot, bui
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/magnet.git
-cd magnet
+git clone https://github.com/yourusername/whosh.git
+cd whosh
 ```
 
 2. Install dependencies:
@@ -60,7 +60,7 @@ The application will be available at:
 ## Project Structure
 
 ```
-magnet/
+whosh/
 ├── client/                 # Frontend Next.js application
 ├── server/                # Backend Node.js/Express application
 ├── shared/               # Shared code between frontend and backend

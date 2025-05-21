@@ -9,7 +9,7 @@ import authRoutes from './routes/auth.routes';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import './config/passport';
-
+import platformRoutes from './routes/platform.routes';
 // Initialize Express app
 const app = express();
 
@@ -45,6 +45,7 @@ app.use(passport.initialize());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/platforms', platformRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
