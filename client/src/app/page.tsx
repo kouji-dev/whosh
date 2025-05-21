@@ -55,6 +55,9 @@ export default function LandingPage() {
               <Button variant="ghost" asChild>
                 <Link href="/pricing">Pricing</Link>
               </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/privacy-policy">Privacy Policy</Link>
+              </Button>
               <Button asChild>
                 <Link href="/login">
                   Connect

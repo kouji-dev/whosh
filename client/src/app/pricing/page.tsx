@@ -67,7 +67,7 @@ export default function PricingPage() {
       <header className="flex h-16 items-center justify-between border-b px-6">
         <div className="flex items-center space-x-2">
           <Link href="/" className="text-xl font-bold">
-            Magnet
+            Whosh
           </Link>
         </div>
         <div className="flex items-center space-x-4">
@@ -82,6 +82,9 @@ export default function PricingPage() {
             <div className="flex items-center space-x-4">
               <Button variant="ghost" asChild>
                 <Link href="/pricing">Pricing</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/privacy-policy">Privacy Policy</Link>
               </Button>
               <Button asChild>
                 <Link href="/login">
