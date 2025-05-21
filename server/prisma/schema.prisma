@@ -57,6 +57,8 @@ model Post {
   status        String    // draft, scheduled, published, failed
   scheduledFor  DateTime?
   publishedAt   DateTime?
+  error         String?
+  retryCount    Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   userId        String
@@ -64,6 +66,9 @@ model Post {
   socialAccountId String
   socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
   analytics     PostAnalytics?
+
+  @@index([status, scheduledFor])
+  @@index([userId])
 }
 
 model PostAnalytics {

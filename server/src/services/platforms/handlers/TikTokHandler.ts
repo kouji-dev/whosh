@@ -45,6 +45,17 @@ interface TikTokUserResponse {
   }
 }
 
+interface TikTokMediaResponse {
+  data: {
+    media_id: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+    log_id: string;
+  };
+}
+
 export class TikTokHandler implements PlatformHandler {
   private readonly config = platforms.tiktok;
   private readonly clientId = socialMediaConfig.tiktok.clientId as string;
@@ -220,6 +231,62 @@ export class TikTokHandler implements PlatformHandler {
 
     if (!response.ok) {
       throw new Error('Failed to revoke token');
+    }
+  }
+
+  async publishPost(data: { content: string; mediaUrls: string[]; accessToken: string }): Promise<void> {
+    const { content, mediaUrls, accessToken } = data;
+
+    // First, upload media if any
+    const mediaIds = await Promise.all(
+      mediaUrls.map(async (url) => {
+        const response = await fetch(`${this.config.uploadUrl}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            source: url,
+            source_info: {
+              source: 'FILE_UPLOAD'
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload media: ${response.statusText}`);
+        }
+
+        const data = await response.json() as TikTokMediaResponse;
+        if (data.error) {
+          throw new Error(`TikTok API error: ${data.error.message}`);
+        }
+        return data.data.media_id;
+      })
+    );
+
+    // Then create the post
+    const response = await fetch(`${this.config.postUrl}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: content,
+          privacy_level: 'PUBLIC',
+          disable_comment: false,
+          disable_duet: false,
+          disable_stitch: false
+        },
+        media_ids: mediaIds
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create post: ${response.statusText}`);
     }
   }
 

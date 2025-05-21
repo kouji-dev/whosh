@@ -1,15 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
-import { type User as U} from '@prisma/client';
 
 const authService = new AuthService();
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface User extends U {}
-  }
-}
 
 export const authenticate = async (
   req: Request,

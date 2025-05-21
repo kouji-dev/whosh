@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChannelSelector } from '@/components/calendar/ChannelSelector';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { useSchedulePost } from '@/hooks/usePosts';
 
 interface PostFormData {
   title: string;
@@ -22,43 +24,74 @@ interface PostFormProps {
 }
 
 export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: PostFormProps) {
+  const schedulePost = useSchedulePost();
+
+  const handleSubmit = async () => {
+    try {
+      // Schedule post for each selected channel
+      await Promise.all(
+        post.channels.map((socialAccountId) =>
+          schedulePost.mutateAsync({
+            content: post.title,
+            mediaUrls: [], // TODO: Add media upload support
+            scheduledFor: post.scheduledFor.toISOString(),
+            socialAccountId,
+          })
+        )
+      );
+
+      onSubmit();
+      return true;
+    } catch (error) {
+      // Error handling is done in the mutation
+      console.error('Failed to schedule posts:', error);
+      return false;
+    }
+  };
+
   return (
-    <DialogContent className="max-w-2xl">
+    <DialogContent>
       <DialogHeader>
-        <DialogTitle>{isEditing ? 'Edit Post' : 'Schedule New Post'}</DialogTitle>
+        <DialogTitle>{isEditing ? 'Edit Post' : 'Schedule Post'}</DialogTitle>
       </DialogHeader>
       <Tabs defaultValue="compose" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="compose">Compose</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
         </TabsList>
         <TabsContent value="compose" className="space-y-4">
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="What would you like to share?"
+              <label className="text-sm font-medium">Content</label>
+              <textarea
+                className="w-full rounded-md border p-2 text-sm"
+                rows={4}
                 value={post.title}
                 onChange={(e) =>
-                  onPostChange({ ...post, title: e.target.value })
+                  onPostChange({
+                    ...post,
+                    title: e.target.value,
+                  })
                 }
+                placeholder="What's on your mind?"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Channels</label>
               <ChannelSelector
                 selectedChannels={post.channels}
-                onChannelSelect={(channelId) =>
+                onChannelsChange={(channels) =>
                   onPostChange({
                     ...post,
-                    channels: post.channels.includes(channelId)
-                      ? post.channels.filter((id) => id !== channelId)
-                      : [...post.channels, channelId],
+                    channels,
                   })
                 }
               />
             </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="schedule" className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Schedule</label>
               <div className="flex items-center space-x-2">
@@ -77,36 +110,11 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
             </div>
             <Button
               className="w-full"
-              onClick={onSubmit}
-              disabled={!post.title || post.channels.length === 0}
+              onClick={handleSubmit}
+              disabled={!post.title || post.channels.length === 0 || schedulePost.isPending}
             >
-              {isEditing ? 'Update Post' : 'Schedule Post'}
+              {schedulePost.isPending ? 'Scheduling...' : isEditing ? 'Update Post' : 'Schedule Post'}
             </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="preview">
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <p className="whitespace-pre-wrap font-semibold">{post.title}</p>
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center space-x-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>
-                    {format(post.scheduledFor, 'MMM d, yyyy h:mm a')}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {post.channels.map((channelId) => (
-                    <span
-                      key={channelId}
-                      className="rounded-full bg-primary/10 px-2 py-1 text-xs"
-                    >
-                      {channelId}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </TabsContent>
       </Tabs>

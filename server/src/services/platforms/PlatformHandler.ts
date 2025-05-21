@@ -20,6 +20,12 @@ export interface ConnectionResult {
   error?: string;
 }
 
+export interface PublishPostData {
+  content: string;
+  mediaUrls: string[];
+  accessToken: string;
+}
+
 export interface PlatformHandler {
   getAuthUrl(redirectUri: string, userId: string): string;
   handleCallback(code: string, redirectUri: string, state?: string): Promise<OAuthTokens>;
@@ -27,4 +33,5 @@ export interface PlatformHandler {
   refreshToken(refreshToken: string): Promise<OAuthTokens>;
   revokeToken(accessToken: string): Promise<void>;
   handleConnection(userId: string, tokens: OAuthTokens, userInfo: UserInfo, clientUrl: string): Promise<ConnectionResult>;
+  publishPost(data: PublishPostData): Promise<void>;
 } 

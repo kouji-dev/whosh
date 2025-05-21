@@ -13,6 +13,8 @@ export interface PlatformConfig {
   authUrl: string;
   tokenUrl: string;
   userInfoUrl: string;
+  uploadUrl?: string;
+  postUrl?: string;
 }
 
 export const platforms: Record<PlatformCode, PlatformConfig> = {
@@ -78,7 +80,9 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     scopes: ['user.info.basic', 'user.info.profile', 'video.publish'],
     authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
-    userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/'
+    userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/',
+    uploadUrl: 'https://open.tiktokapis.com/v2/post/publish/video/upload/',
+    postUrl: 'https://open.tiktokapis.com/v2/post/publish/video/publish/'
   },
   youtube: {
     name: 'YouTube',

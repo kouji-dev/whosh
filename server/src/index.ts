@@ -10,7 +10,9 @@ import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import './config/passport';
 import platformRoutes from './routes/platform.routes';
+import postRoutes from './routes/post.routes';
 import { jsonBeautify } from './middleware/json-beautify.middleware';
+import { SchedulerService } from './services/scheduler.service';
 
 // Initialize Express app
 const app = express();
@@ -25,6 +27,10 @@ const redis = createClient({
 
 // Connect to Redis
 redis.connect().catch(console.error);
+
+// Initialize Scheduler Service
+const schedulerService = SchedulerService.getInstance();
+schedulerService.start().catch(console.error);
 
 // Middleware
 app.use(helmet());
@@ -49,6 +55,7 @@ app.use(passport.initialize());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/platforms', platformRoutes);
+app.use('/api/posts', postRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
