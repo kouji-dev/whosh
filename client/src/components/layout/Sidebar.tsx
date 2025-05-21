@@ -100,7 +100,7 @@ const Sidebar = () => {
             <div>
               <img
                 className="inline-block h-10 w-10 rounded-full"
-                src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name}`}
+                src={`https://ui-avatars.com/api/?name=${user?.name || user?.email}`}
                 alt=""
               />
             </div>
