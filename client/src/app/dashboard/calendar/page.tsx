@@ -88,14 +88,14 @@ export default function CalendarPage() {
           </DialogTrigger>
           <PostForm
             post={{
-              content: newEvent.title,
+              title: newEvent.title,
               scheduledFor: newEvent.start,
               channels: newEvent.resource.channels,
             }}
             onPostChange={(post) =>
               setNewEvent((prev) => ({
                 ...prev,
-                title: post.content,
+                title: post.title,
                 start: post.scheduledFor,
                 end: post.scheduledFor,
                 resource: { channels: post.channels },
