@@ -1,90 +1,99 @@
-import dotenv from 'dotenv';
-import path from 'path';
+import { z } from 'zod';
 
-// Load environment variables based on NODE_ENV
-const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
-dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.string().default('3000'),
+  DATABASE_URL: z.string(),
+  JWT_SECRET: z.string().default('your-secret-key'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  API_URL: z.string().optional(),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  DIRECT_URL: z.string().optional(),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  TWITTER_CLIENT_ID: z.string().optional(),
+  TWITTER_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_CLIENT_ID: z.string().optional(),
+  FACEBOOK_CLIENT_SECRET: z.string().optional(),
+  INSTAGRAM_CLIENT_ID: z.string().optional(),
+  INSTAGRAM_CLIENT_SECRET: z.string().optional(),
+  LINKEDIN_CLIENT_ID: z.string().optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().optional(),
+  TIKTOK_CLIENT_ID: z.string().optional(),
+  TIKTOK_CLIENT_SECRET: z.string().optional(),
+  YOUTUBE_CLIENT_ID: z.string().optional(),
+  YOUTUBE_CLIENT_SECRET: z.string().optional(),
+});
 
-// Server configuration
-export const serverConfig = {
-  port: process.env.PORT || 4000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  apiUrl: process.env.API_URL,
-  clientUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-};
+const env = envSchema.parse(process.env);
 
-// Database configuration
-export const dbConfig = {
-  url: process.env.DATABASE_URL,
-  directUrl: process.env.DIRECT_URL,
-};
-
-// Redis configuration
-export const redisConfig = {
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-};
-
-// JWT configuration
-export const jwtConfig = {
-  secret: process.env.JWT_SECRET || 'your-secret-key',
-  expiresIn: process.env.JWT_EXPIRES_IN || '1d',
-};
-
-// Google OAuth configuration
-export const googleConfig = {
-  clientId: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-};
-
-// Social Media API configuration
-export const socialMediaConfig = {
-  twitter: {
-    clientId: process.env.TWITTER_CLIENT_ID,
-    clientSecret: process.env.TWITTER_CLIENT_SECRET,
+export const config = {
+  env: env.NODE_ENV,
+  port: parseInt(env.PORT, 10),
+  db: {
+    url: env.DATABASE_URL,
+    directUrl: env.DIRECT_URL,
   },
-  facebook: {
-    clientId: process.env.FACEBOOK_CLIENT_ID,
-    clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+  jwt: {
+    secret: env.JWT_SECRET,
+    expiresIn: env.JWT_EXPIRES_IN,
   },
-  instagram: {
-    clientId: process.env.INSTAGRAM_CLIENT_ID,
-    clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+  server: {
+    nodeEnv: env.NODE_ENV,
+    corsOrigin: env.CORS_ORIGIN,
+    apiUrl: env.API_URL,
+    clientUrl: env.FRONTEND_URL,
   },
-  linkedin: {
-    clientId: process.env.LINKEDIN_CLIENT_ID,
-    clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+  redis: {
+    url: env.REDIS_URL,
   },
-  tiktok: {
-    clientId: process.env.TIKTOK_CLIENT_ID,
-    clientSecret: process.env.TIKTOK_CLIENT_SECRET,
+  google: {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
   },
-  youtube: {
-    clientId: process.env.YOUTUBE_CLIENT_ID,
-    clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+  socialMedia: {
+    twitter: {
+      clientId: env.TWITTER_CLIENT_ID,
+      clientSecret: env.TWITTER_CLIENT_SECRET,
+    },
+    facebook: {
+      clientId: env.FACEBOOK_CLIENT_ID,
+      clientSecret: env.FACEBOOK_CLIENT_SECRET,
+    },
+    instagram: {
+      clientId: env.INSTAGRAM_CLIENT_ID,
+      clientSecret: env.INSTAGRAM_CLIENT_SECRET,
+    },
+    linkedin: {
+      clientId: env.LINKEDIN_CLIENT_ID,
+      clientSecret: env.LINKEDIN_CLIENT_SECRET,
+    },
+    tiktok: {
+      clientId: env.TIKTOK_CLIENT_ID,
+      clientSecret: env.TIKTOK_CLIENT_SECRET,
+    },
+    youtube: {
+      clientId: env.YOUTUBE_CLIENT_ID,
+      clientSecret: env.YOUTUBE_CLIENT_SECRET,
+    },
   },
-};
+  isDevelopment: env.NODE_ENV === 'development',
+  isProduction: env.NODE_ENV === 'production',
+  isTest: env.NODE_ENV === 'test',
+} as const;
 
 // Validate required environment variables
 const validateConfig = () => {
   const requiredVars = [
-    { name: 'DATABASE_URL', value: dbConfig.url },
-    { name: 'JWT_SECRET', value: jwtConfig.secret },
-    { name: 'API_URL', value: serverConfig.apiUrl },
-    //{ name: 'CLIENT_URL', value: serverConfig.clientUrl },
-    // Platform OAuth requirements
-    // { name: 'TWITTER_CLIENT_ID', value: socialMediaConfig.twitter.clientId },
-    // { name: 'TWITTER_CLIENT_SECRET', value: socialMediaConfig.twitter.clientSecret },
-     { name: 'FACEBOOK_CLIENT_ID', value: socialMediaConfig.facebook.clientId },
-     { name: 'FACEBOOK_CLIENT_SECRET', value: socialMediaConfig.facebook.clientSecret },
-    // { name: 'INSTAGRAM_CLIENT_ID', value: socialMediaConfig.instagram.clientId },
-    // { name: 'INSTAGRAM_CLIENT_SECRET', value: socialMediaConfig.instagram.clientSecret },
-    // { name: 'LINKEDIN_CLIENT_ID', value: socialMediaConfig.linkedin.clientId },
-    // { name: 'LINKEDIN_CLIENT_SECRET', value: socialMediaConfig.linkedin.clientSecret },
-     { name: 'TIKTOK_CLIENT_ID', value: socialMediaConfig.tiktok.clientId },
-     { name: 'TIKTOK_CLIENT_SECRET', value: socialMediaConfig.tiktok.clientSecret },
-    // { name: 'YOUTUBE_CLIENT_ID', value: socialMediaConfig.youtube.clientId },
-    // { name: 'YOUTUBE_CLIENT_SECRET', value: socialMediaConfig.youtube.clientSecret },
+    { name: 'DATABASE_URL', value: config.db.url },
+    { name: 'JWT_SECRET', value: config.jwt.secret },
+    { name: 'API_URL', value: config.server.apiUrl },
+    { name: 'FACEBOOK_CLIENT_ID', value: config.socialMedia.facebook.clientId },
+    { name: 'FACEBOOK_CLIENT_SECRET', value: config.socialMedia.facebook.clientSecret },
+    { name: 'TIKTOK_CLIENT_ID', value: config.socialMedia.tiktok.clientId },
+    { name: 'TIKTOK_CLIENT_SECRET', value: config.socialMedia.tiktok.clientSecret },
   ];
 
   const missingVars = requiredVars.filter(({ value }) => !value);
@@ -100,11 +109,4 @@ const validateConfig = () => {
 // Validate configuration on startup
 validateConfig();
 
-export default {
-  server: serverConfig,
-  db: dbConfig,
-  redis: redisConfig,
-  jwt: jwtConfig,
-  google: googleConfig,
-  socialMedia: socialMediaConfig,
-}; 
+export default config; 

@@ -13,12 +13,13 @@ I want you to bear in mind that the code should align with Hexagonal architectur
 
 domains should go under src/domain/[domain-name]
 
-user(folder)
-    - user.service (types can be moved to user.dtos)
-    - user.repository
-    - user.routes
-    - user.model
-    - user.dtos
++ domain/user/user.service.ts (request/response can be moved to user.dtos and model related types can be moved to user.types, IUserService should be defined in the same file)
++ domain/user/user.repository (IUserRepository should be defined in the same file)
++ domain/user/user.routes
++ domain/user/user.model
++ domain/user/user.dtos
+
+for example user.controller file should be directly placed under domains/user folder, no need to encapsulate in another folder.
 
 Please align to this architecture when dealing with models and domains.
 
@@ -32,6 +33,7 @@ always use src/config to interact and define any process.env configuration.
 
 - always iterate over unused files or folders and remove them.
 - install latest dependencies, and remove unused ones
+
 
 
 

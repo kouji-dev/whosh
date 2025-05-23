@@ -9,6 +9,7 @@ const globalForDrizzle = globalThis as unknown as {
 
 const sql = neon(process.env.DATABASE_URL!);
 
+
 export const dbClient =
   globalForDrizzle.dbClient ??
   drizzle(sql, {

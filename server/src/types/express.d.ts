@@ -1,11 +1,10 @@
-import { Request } from 'express';
+import { User as AuthUser } from '../domains/auth/auth.types';
 
 declare global {
   namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-      };
-    }
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface User extends AuthUser {}
   }
 }
+
+export {}; 

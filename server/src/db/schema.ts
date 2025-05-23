@@ -21,18 +21,31 @@ export const platforms = pgTable('platforms', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const socialAccounts = pgTable('social_accounts', {
+export const socialChannels = pgTable('social_channels', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
-  platform: text('platform').notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  platformId: text('platform_id').notNull().references(() => platforms.id, { onDelete: 'cascade' }),
+  platformUserId: text('platform_user_id').notNull(),
+  username: text('username').notNull(),
+  displayName: text('display_name'),
+  profileImage: text('profile_image'),
   accessToken: text('access_token').notNull(),
   refreshToken: text('refresh_token'),
   tokenExpires: timestamp('token_expires'),
-  platformUserId: text('platform_user_id').notNull(),
-  username: text('username').notNull(),
+  scopes: json('scopes').$type<string[]>().notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  lastSync: timestamp('last_sync'),
+  metadata: json('metadata').$type<Record<string, any>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-});
+}, (table) => ({
+  // Ensure unique combination of user, platform, and platform user ID
+  userPlatformChannelIdx: uniqueIndex('user_platform_channel_idx').on(
+    table.userId,
+    table.platformId,
+    table.platformUserId
+  ),
+}));
 
 export const posts = pgTable('posts', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
@@ -46,7 +59,7 @@ export const posts = pgTable('posts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  socialAccountId: text('social_account_id').notNull().references(() => socialAccounts.id, { onDelete: 'cascade' }),
+  channelId: text('channel_id').notNull().references(() => socialChannels.id, { onDelete: 'cascade' }),
 }, (table) => ({
   statusScheduledForIdx: index('status_scheduled_for_idx').on(table.status, table.scheduledFor),
   userIdIdx: index('user_id_idx').on(table.userId),
@@ -82,41 +95,25 @@ export const teamMembers = pgTable('team_members', {
   teamUserIdx: uniqueIndex('team_user_idx').on(table.teamId, table.userId),
 }));
 
-export const platformConnections = pgTable('platform_connections', {
-  id: text('id').primaryKey().$defaultFn(() => createId()),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  platformId: text('platform_id').notNull().references(() => platforms.id, { onDelete: 'cascade' }),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token'),
-  accountId: text('account_id').notNull(),
-  accountName: text('account_name'),
-  profileImage: text('profile_image'),
-  lastSync: timestamp('last_sync'),
-  isValid: boolean('is_valid').default(true).notNull(),
-  scopes: json('scopes').$type<string[]>().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  parentConnectionId: text('parent_connection_id').references(() => platformConnections.id),
-}, (table) => ({
-  userPlatformAccountIdx: uniqueIndex('user_platform_account_idx').on(table.userId, table.platformId, table.accountId),
-}));
-
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
-  socialAccounts: many(socialAccounts),
+  channels: many(socialChannels),
   posts: many(posts),
   teamMembers: many(teamMembers),
-  platformConnections: many(platformConnections),
 }));
 
 export const platformsRelations = relations(platforms, ({ many }) => ({
-  connections: many(platformConnections),
+  channels: many(socialChannels),
 }));
 
-export const socialAccountsRelations = relations(socialAccounts, ({ one, many }) => ({
+export const socialChannelsRelations = relations(socialChannels, ({ one, many }) => ({
   user: one(users, {
-    fields: [socialAccounts.userId],
+    fields: [socialChannels.userId],
     references: [users.id],
+  }),
+  platform: one(platforms, {
+    fields: [socialChannels.platformId],
+    references: [platforms.id],
   }),
   posts: many(posts),
 }));
@@ -126,9 +123,9 @@ export const postsRelations = relations(posts, ({ one }) => ({
     fields: [posts.userId],
     references: [users.id],
   }),
-  socialAccount: one(socialAccounts, {
-    fields: [posts.socialAccountId],
-    references: [socialAccounts.id],
+  channel: one(socialChannels, {
+    fields: [posts.channelId],
+    references: [socialChannels.id],
   }),
   analytics: one(postAnalytics, {
     fields: [posts.id],
@@ -156,20 +153,4 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
     fields: [teamMembers.userId],
     references: [users.id],
   }),
-}));
-
-export const platformConnectionsRelations = relations(platformConnections, ({ one, many }) => ({
-  user: one(users, {
-    fields: [platformConnections.userId],
-    references: [users.id],
-  }),
-  platform: one(platforms, {
-    fields: [platformConnections.platformId],
-    references: [platforms.id],
-  }),
-  parentConnection: one(platformConnections, {
-    fields: [platformConnections.parentConnectionId],
-    references: [platformConnections.id],
-  }),
-  childConnections: many(platformConnections),
 })); 

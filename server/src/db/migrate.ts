@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as dotenv from 'dotenv';
+import { logger } from '../infra/logger/pino-logger';
 
 dotenv.config();
 
@@ -11,15 +12,15 @@ const runMigration = async () => {
   });
   const db = drizzle({ client: pool });
 
-  console.log('Running migrations...');
+  logger.info('Running migrations...');
   
   await migrate(db, { migrationsFolder: 'drizzle' });
   
-  console.log('Migrations completed!');
+  logger.info('Migrations completed!');
 };
 
 runMigration().catch((err) => {
-  console.error('Migration failed!');
-  console.error(err);
+  logger.error('Migration failed!');
+  logger.error(err);
   process.exit(1);
 }); 
