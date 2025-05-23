@@ -1,11 +1,10 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { SchedulerService } from '../services/scheduler.service';
-import { AuthRequest } from '../types/express';
 
 const schedulerService = SchedulerService.getInstance();
 
 export const postController = {
-  schedulePost: async (req: AuthRequest, res: Response) => {
+  schedulePost: async (req: Request, res: Response) => {
     try {
       const { content, mediaUrls, scheduledFor, socialAccountId } = req.body;
       const userId = req.user?.id;
@@ -29,7 +28,7 @@ export const postController = {
     }
   },
 
-  cancelPost: async (req: AuthRequest, res: Response) => {
+  cancelPost: async (req: Request, res: Response) => {
     try {
       const { postId } = req.params;
       await schedulerService.cancelPost(postId);
@@ -40,7 +39,7 @@ export const postController = {
     }
   },
 
-  getScheduledPosts: async (req: AuthRequest, res: Response) => {
+  getScheduledPosts: async (req: Request, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {

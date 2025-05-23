@@ -1,6 +1,8 @@
 import { platforms, PlatformCode } from '../config/platforms';
 import { PlatformHandlerFactory } from './platforms/PlatformHandlerFactory';
-import { prisma } from '../lib/prisma';
+import { dbClient } from '../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { platforms as platformsTable, platformConnections } from '../db/schema';
 
 interface Channel {
   id: string;
@@ -48,9 +50,9 @@ interface PlatformConnection {
 export class PlatformService {
   // Get list of available platform types and user's connected channels
   static async getAvailableChannels(userId: string) {
-    const connectedChannels = await prisma.platformConnection.findMany({
-      where: { userId },
-      include: {
+    const connectedChannels = await dbClient.query.platformConnections.findMany({
+      where: eq(platformConnections.userId, userId),
+      with: {
         platform: true
       }
     });
@@ -87,7 +89,7 @@ export class PlatformService {
         accountId: channel.accountId,
         lastSync: channel.lastSync,
         isValid: channel.isValid,
-        parentConnectionId: (channel as any).parentConnectionId,
+        parentConnectionId: channel.parentConnectionId,
         avatarUrl: channel.profileImage || null
       });
       return acc;
@@ -141,16 +143,18 @@ export class PlatformService {
     parentConnectionId?: string
   ) {
     // First, ensure the platform exists
-    const platformRecord = await prisma.platform.upsert({
-      where: { code: platform },
-      update: {},
-      create: {
+    const [platformRecord] = await dbClient.insert(platformsTable)
+      .values({
         code: platform,
         name: platforms[platform].name,
         icon: platforms[platform].icon,
         color: platforms[platform].color
-      }
-    });
+      })
+      .onConflictDoUpdate({
+        target: platformsTable.code,
+        set: {}
+      })
+      .returning();
 
     const data = {
       userId,
@@ -167,16 +171,16 @@ export class PlatformService {
       (data as any).parentConnectionId = parentConnectionId;
     }
 
-    return prisma.platformConnection.create({
-      data
-    });
+    return dbClient.insert(platformConnections)
+      .values(data)
+      .returning();
   }
 
   // Get user's connected channels
   static async getConnectedChannels(userId: string) {
-    return prisma.platformConnection.findMany({
-      where: { userId },
-      include: {
+    return dbClient.query.platformConnections.findMany({
+      where: eq(platformConnections.userId, userId),
+      with: {
         platform: true
       }
     });
@@ -184,9 +188,12 @@ export class PlatformService {
 
   // Disconnect channel
   static async disconnectChannel(channelId: string, userId: string) {
-    const channel = await prisma.platformConnection.findFirst({
-      where: { id: channelId, userId },
-      include: {
+    const channel = await dbClient.query.platformConnections.findFirst({
+      where: and(
+        eq(platformConnections.id, channelId),
+        eq(platformConnections.userId, userId)
+      ),
+      with: {
         platform: true
       }
     });
@@ -197,10 +204,9 @@ export class PlatformService {
 
     // If this is a parent connection (e.g., Facebook user account),
     // also disconnect all child channels (e.g., Facebook pages)
-    if (!(channel as any).parentConnectionId) {
-      await prisma.platformConnection.deleteMany({
-        where: { parentConnectionId: channelId } as any
-      });
+    if (!channel.parentConnectionId) {
+      await dbClient.delete(platformConnections)
+        .where(eq(platformConnections.parentConnectionId, channelId));
     }
 
     // Revoke the token if possible
@@ -211,23 +217,23 @@ export class PlatformService {
       console.error('Failed to revoke token:', error);
     }
 
-    return prisma.platformConnection.delete({
-      where: {
-        id: channelId,
-        userId
-      }
-    });
+    return dbClient.delete(platformConnections)
+      .where(and(
+        eq(platformConnections.id, channelId),
+        eq(platformConnections.userId, userId)
+      ))
+      .returning();
   }
 
   // Get channel status
   static async getChannelStatus(userId: string, channelId: string) {
-    const channel = await prisma.platformConnection.findFirst({
-      where: {
-        id: channelId,
-        userId,
-        isValid: true
-      },
-      include: {
+    const channel = await dbClient.query.platformConnections.findFirst({
+      where: and(
+        eq(platformConnections.id, channelId),
+        eq(platformConnections.userId, userId),
+        eq(platformConnections.isValid, true)
+      ),
+      with: {
         platform: true
       }
     });
@@ -246,13 +252,13 @@ export class PlatformService {
         name: channel.platform.name,
         icon: channel.platform.icon
       },
-      isParentConnection: !(channel as any).parentConnectionId
+      isParentConnection: !channel.parentConnectionId
     };
   }
 
   // Sync channel data
   static async syncChannelData(userId: string, channelId: string) {
-    const channel = await prisma.platformConnection.findFirst({
+    const channel = await dbClient.query.platformConnections.findFirst({
       where: {
         id: channelId,
         userId,
@@ -268,9 +274,8 @@ export class PlatformService {
     // This will be implemented for each platform separately
 
     // Update last sync time
-    await prisma.platformConnection.update({
-      where: { id: channel.id },
-      data: { lastSync: new Date() }
-    });
+    await dbClient.update(platformConnections)
+      .set({ lastSync: new Date() })
+      .where(eq(platformConnections.id, channel.id));
   }
 } 

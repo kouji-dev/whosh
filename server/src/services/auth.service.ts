@@ -1,8 +1,10 @@
-import { User } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { dbClient } from '../lib/db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
+import { users } from '../db/schema';
+import type { InferSelectModel } from 'drizzle-orm';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -19,14 +21,16 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
+type User = InferSelectModel<typeof users>;
+
 export class AuthService {
   // Register with email and password
   async register(data: z.infer<typeof registerSchema>) {
     const validatedData = registerSchema.parse(data);
     
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+    const existingUser = await dbClient.query.users.findFirst({
+      where: eq(users.email, validatedData.email),
     });
 
     if (existingUser) {
@@ -37,13 +41,13 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
+    const [user] = await dbClient.insert(users)
+      .values({
         email: validatedData.email,
         password: hashedPassword,
         name: validatedData.name,
-      },
-    });
+      })
+      .returning();
 
     // Generate JWT
     const token = this.generateToken(user.id);
@@ -56,8 +60,8 @@ export class AuthService {
     const validatedData = loginSchema.parse(data);
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+    const user = await dbClient.query.users.findFirst({
+      where: eq(users.email, validatedData.email),
     });
 
     if (!user) {
@@ -78,23 +82,22 @@ export class AuthService {
   }
 
   // Handle Google OAuth
-  async handleGoogleAuth(profile: User) {
+  async handleGoogleAuth(profile: { email: string; name?: string }) {
     // Check if user exists
-    let user = await prisma.user.findFirst({
-      where: {
-        email: profile.email,
-      },
+    let user = await dbClient.query.users.findFirst({
+      where: eq(users.email, profile.email),
     });
 
     if (!user) {
       // Create new user
-      user = await prisma.user.create({
-        data: {
+      const [newUser] = await dbClient.insert(users)
+        .values({
           email: profile.email,
           name: profile.name,
           password: '', // Empty password for OAuth users
-        },
-      });
+        })
+        .returning();
+      user = newUser;
     }
 
     // Generate JWT
@@ -105,17 +108,17 @@ export class AuthService {
 
   // Generate JWT token
   private generateToken(userId: string): string {
-    return jwt.sign({ userId }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
+    const payload = { userId };
+    const options = { expiresIn: JWT_EXPIRES_IN };
+    return jwt.sign(payload, JWT_SECRET, options);
   }
 
   // Verify JWT token
   async verifyToken(token: string) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
+      const user = await dbClient.query.users.findFirst({
+        where: eq(users.id, decoded.userId),
       });
 
       if (!user) {

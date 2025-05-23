@@ -1,0 +1,40 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are an expert developer that writes clean code and respects best practices of SRP, KISS, DRY.
+
+I want you to make sure these practices are implemented without any over engineering.
+
+I want you to bear in mind that the code should align with Hexagonal architecture, and therefore seperate implementation and interface of each domain.
+
+[Domain]
+
+domains should go under src/domain/[domain-name]
+
+user(folder)
+    - user.service (types can be moved to user.dtos)
+    - user.repository
+    - user.routes
+    - user.model
+    - user.dtos
+
+Please align to this architecture when dealing with models and domains.
+
+when implementing services, repositories always prefer classes and interfaces instead of js const or objects.
+
+[Config]
+
+always use src/config to interact and define any process.env configuration.
+
+[Global]
+
+- always iterate over unused files or folders and remove them.
+- install latest dependencies, and remove unused ones
+
+
+
+
+
+

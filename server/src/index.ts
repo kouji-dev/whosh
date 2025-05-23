@@ -6,38 +6,19 @@ import passport from 'passport';
 import { rateLimit } from 'express-rate-limit';
 import config from './config';
 import authRoutes from './routes/auth.routes';
-import { PrismaClient } from '@prisma/client';
-import { createClient } from 'redis';
 import './config/passport';
 import platformRoutes from './routes/platform.routes';
 import postRoutes from './routes/post.routes';
 import { jsonBeautify } from './middleware/json-beautify.middleware';
 import { SchedulerService } from './services/scheduler.service';
+import { prisma } from './lib/prisma';
 
 // Initialize Express app
 const app = express();
 
-// Initialize Prisma client
-const prisma = new PrismaClient();
-
-// Initialize Redis client
-const redis = createClient({
-  url: config.redis.url,
-});
-
-// Connect to Redis
-redis.connect().catch(console.error);
-
-// Initialize Scheduler Service
-const schedulerService = SchedulerService.getInstance();
-schedulerService.start().catch(console.error);
-
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: config.server.corsOrigin,
-  credentials: true,
-}));
+app.use(cors({ origin: config.server.corsOrigin, credentials: true }));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(jsonBeautify);
@@ -70,14 +51,27 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Start server
 const PORT = config.server.port;
-app.listen(PORT, () => {
-  console.log(`Server running in ${config.server.nodeEnv} mode on port ${PORT}`);
-});
+
+// Initialize services and start server
+async function startServer() {
+  try {
+
+    await SchedulerService.getInstance().start();
+    // Start HTTP server
+    app.listen(PORT, () => {
+      console.log(`Server running in ${config.server.nodeEnv} mode on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Closing HTTP server and database connections...');
   await prisma.$disconnect();
-  await redis.quit();
   process.exit(0);
 }); 

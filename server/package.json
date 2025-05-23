@@ -11,20 +11,20 @@
     "build": "tsc",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "db:setup": "npm run prisma:generate && npm run prisma:migrate",
-    "setup": "node scripts/setup-env.js"
+    "setup": "node scripts/setup-env.js",
+    "drizzle:generate": "drizzle-kit generate",
+    "drizzle:push": "drizzle-kit push",
+    "drizzle:studio": "drizzle-kit studio",
+    "drizzle:migrate": "ts-node-dev --respawn --transpile-only src/db/migrate.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.2",
+    "@neondatabase/serverless": "latest",
+    "@paralleldrive/cuid2": "^2.2.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "latest",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
@@ -48,15 +48,13 @@
     "@types/passport": "^1.0.16",
     "@types/passport-google-oauth20": "^2.0.14",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pg": "^8.15.2",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
+    "drizzle-kit": "latest",
     "eslint": "^8.56.0",
-    "prisma": "^5.10.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   }
 }
