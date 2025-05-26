@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart, Calendar, Share2, Users, Loader2 } from 'lucide-react';
 import Link from 'next/link';

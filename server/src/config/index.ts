@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import { z } from 'zod';
 
 const envSchema = z.object({
@@ -26,6 +27,8 @@ const envSchema = z.object({
   YOUTUBE_CLIENT_ID: z.string().optional(),
   YOUTUBE_CLIENT_SECRET: z.string().optional(),
 });
+
+dotenv.config();
 
 const env = envSchema.parse(process.env);
 

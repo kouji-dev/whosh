@@ -30,10 +30,7 @@ export class PostScheduleService implements IPostScheduleService {
       throw new Error('Database URL is not configured');
     }
     this.boss = new PgBoss({
-      connectionString: config.db.directUrl,
-      ssl: {
-        rejectUnauthorized: false
-      }
+      connectionString: config.db.directUrl
     });
     this.boss.on('error', console.error);
   }
@@ -46,10 +43,16 @@ export class PostScheduleService implements IPostScheduleService {
   }
 
   async start() {
-    logger.info('Post schedule service starting...');
-    await this.boss.start();
-    await this.setupWorkers();
-    logger.info('Post schedule service started successfully');
+    try {
+      logger.info('Post schedule service starting...');
+      await this.boss.start();
+      logger.info('Post schedule service starting...');
+      await this.setupWorkers();
+      logger.info('Post schedule service started successfully');
+    } catch (error) {
+      logger.error('Failed to start post schedule service:', error);
+      throw error;
+    }
   }
 
   private async setupWorkers() {
@@ -171,7 +174,7 @@ export class PostScheduleService implements IPostScheduleService {
       scheduledFor: post.scheduledFor,
       status: post.status as Post['status'],
       publishedAt: post.publishedAt || null,
-      socialAccountId: post.channelId // For backward compatibility
+      channelId: post.channelId // For backward compatibility
     };
   }
 

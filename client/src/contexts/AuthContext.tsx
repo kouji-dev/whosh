@@ -1,9 +1,11 @@
 "use client"
-import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TIKK_TOKEN } from '@/lib/constants';
 import { config } from '@/config/env';
 import axios from '@/lib/axios';
+import { openPopupFlow } from '@/utils/popup';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface User {
   id: string;
@@ -14,55 +16,68 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (credentials: { email: string; password: string; rememberMe?: boolean }) => Promise<void>;
-  signInWithGoogle: () => void;
+  isLoading: boolean;
+  isLogged: boolean;
+  error: any;
+  signIn: (user: User, token: string) => void;
+  signInWithPassword: (credentials: { email: string; password: string; rememberMe?: boolean }) => Promise<void>;
+  signInWithGoogle: (clientId?: string) => void;
   signOut: () => void;
   setUser: (user: User | null) => void;
-  verifyUser: () => Promise<User | null>;
+  refetchUser: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let setUserOn401: ((user: User | null) => void) | null = null;
+
+export function setSetUserOn401(fn: (user: User | null) => void) {
+  setUserOn401 = fn;
+}
+
+async function fetchUserFn(): Promise<User | null> {
+  const token = localStorage.getItem(TIKK_TOKEN);
+  if (!token) return null;
+  const { data } = await axios.get('/api/auth/me');
+  return data.user || null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const verifyUser = async () => {
-    try {
-      const token = localStorage.getItem(TIKK_TOKEN);
-      if (!token) {
-        setUser(null);
-        return;
-      }
+  const { data: user, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ['user'],
+    queryFn: fetchUserFn,
+    staleTime: 1000 * 60 * 5,
+    retry: false
+  });
 
-      const { data } = await axios.get('/api/auth/me');
-      if (data.user) {
-        setUser(data.user);
-        return data.user;
-      } else {
-        localStorage.removeItem(TIKK_TOKEN);
-        setUser(null);
-        return null;
-      }
-    } catch (error) {
-      localStorage.removeItem(TIKK_TOKEN);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-    return null;
+  const setUser = (user: User | null) => {
+    queryClient.setQueryData(['user'], user);
   };
 
-  const signIn = async (credentials: { email: string; password: string; rememberMe?: boolean }) => {
+  const signInWithPassword = async (credentials: { email: string; password: string; rememberMe?: boolean }) => {
     const { data } = await axios.post('/api/auth/login', credentials);
-    localStorage.setItem(TIKK_TOKEN, data.token);
-    setUser(data.user);
+    const user = data.user;
+    const token = data.token;
+    signIn(user, token);
   };
 
-  const signInWithGoogle = useCallback(() => {
-    // Redirect to the Google auth endpoint
-    window.location.href = `${config.apiUrl}/api/auth/google`;
+  const signIn = (user: User, token: string) => {
+    localStorage.setItem(TIKK_TOKEN, token);
+    setUser(user);
+  };
+
+  const signInWithGoogle = useCallback(async (clientId?: string) => {
+    try {
+      const url = clientId
+        ? `${config.apiUrl}/api/auth/google?clientId=${encodeURIComponent(clientId)}`
+        : `${config.apiUrl}/api/auth/google`;
+      await openPopupFlow(url);
+    } catch (err) {
+      console.error('Google sign-in popup failed', err);
+    }
   }, [config.apiUrl]);
 
   const signOut = () => {
@@ -71,8 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const isLogged = !!user;
+
+  useEffect(() => {
+    setSetUserOn401(setUser);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signOut, setUser, verifyUser }}>
+    <AuthContext.Provider value={{ user: user ?? null, loading, isLoading: loading, isLogged, error, signIn, signInWithPassword, signInWithGoogle, signOut, setUser, refetchUser: refetch }}>
       {children}
     </AuthContext.Provider>
   );
@@ -84,4 +105,6 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+}
+
+export { setUserOn401 }; 

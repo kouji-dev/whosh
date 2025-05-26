@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { config } from '@/config/env';
 import { TIKK_TOKEN } from './constants';
+import { toast } from '@/components/ui/use-toast';
+import { setUserOn401 } from '@/contexts/AuthContext';
 
 const apiClient = axios.create({
   baseURL: config.apiUrl,
@@ -33,11 +35,18 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       localStorage.removeItem(TIKK_TOKEN);
+      if (setUserOn401) setUserOn401(null);
       window.location.href = '/login';
+      return Promise.reject(error);
     }
 
-    // Handle other errors
+    // Handle other errors: show toast
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
+    toast({
+      title: 'API Error',
+      description: errorMessage,
+      variant: 'destructive',
+    });
     return Promise.reject(new Error(errorMessage));
   }
 );

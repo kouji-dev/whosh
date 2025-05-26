@@ -10,7 +10,7 @@ const runMigration = async () => {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
   });
-  const db = drizzle({ client: pool });
+  const db = drizzle(pool);
 
   logger.info('Running migrations...');
   

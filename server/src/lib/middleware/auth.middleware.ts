@@ -1,31 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../../domains/auth/auth.service';
 import { AuthenticationError } from '../errors';
-import type { User } from '../../domains/auth/auth.types';
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
-}
+import { associateUserIdWithClientId } from '../../infra/sse/sse';
+import { getClientIdFromRequest } from '../../infra/sse/sse.utils';
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw new AuthenticationError('No authorization header');
-    }
+    let token: string | undefined;
 
-    const [type, token] = authHeader.split(' ');
-    if (type !== 'Bearer' || !token) {
-      throw new AuthenticationError('Invalid authorization format');
+    // If the route is /sse, always use the token from the query param
+    const authHeader = req.headers.authorization;
+      if (authHeader) {
+        const [type, t] = authHeader.split(' ');
+        if (type === 'Bearer' && t) token = t;
+      }
+
+    if (!token) {
+      throw new AuthenticationError('No authorization token');
     }
 
     const authService = AuthService.getInstance();
     const user = await authService.verifyToken(token);
     req.user = user;
+
+    // Bind userId to clientId in SSE mapping if both are present
+    const clientId = getClientIdFromRequest(req, user?.id);
+    associateUserIdWithClientId(user.id, clientId);
+
     next();
   } catch (error) {
     next(error);

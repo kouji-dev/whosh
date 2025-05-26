@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { postsApi, type CreatePostData, type Post } from '@/api/posts';
 import { toast } from 'sonner';
+import { postsService, Post, CreatePostData } from '@/services/posts';
 
 export const useScheduledPosts = (status?: string) => {
-  return useQuery({
+  return useQuery<Post[]>({
     queryKey: ['posts', 'scheduled', status],
-    queryFn: () => postsApi.getScheduledPosts(status),
+    queryFn: () => postsService.getScheduledPosts(status),
   });
 };
 
@@ -13,7 +13,7 @@ export const useSchedulePost = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreatePostData) => postsApi.schedulePost(data),
+    mutationFn: (data: CreatePostData) => postsService.schedulePost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       toast.success('Post scheduled successfully');
@@ -29,7 +29,7 @@ export const useCancelPost = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (postId: string) => postsApi.cancelPost(postId),
+    mutationFn: (postId: string) => postsService.cancelPost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       toast.success('Post cancelled successfully');

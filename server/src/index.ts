@@ -13,6 +13,9 @@ import channelRoutes from './domains/channel/channel.routes';
 import { jsonBeautify } from './lib/middleware/json-beautify.middleware';
 import { errorHandler } from './lib/middleware/error.middleware';
 import { logger } from './infra/logger/pino-logger';
+import { PostScheduleService } from './domains/post/post-schedule.service';
+import sseRoutes from './infra/sse/sse.routes';
+import cookieParser from 'cookie-parser';
 
 // Initialize Express app
 const app = express();
@@ -25,6 +28,7 @@ app.use(cors({
 }));
 app.use(morgan('dev'));
 app.use(express.json());
+app.use(cookieParser());
 app.use(jsonBeautify);
 app.use(errorHandler);
 app.use(passport.initialize());
@@ -36,6 +40,7 @@ app.use(rateLimit({
 }));
 
 // Routes
+app.use('/api', sseRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/platforms', platformRoutes);
 app.use('/api/posts', postRoutes);
@@ -47,6 +52,8 @@ const PORT = config.port;
 // Initialize services and start server
 async function startServer() {
   try {
+    // run post schedule service
+    await PostScheduleService.getInstance().start();
     // Start HTTP server
     app.listen(PORT, () => {
       logger.info(`Server running in ${config.server.nodeEnv} mode on port ${PORT}`);

@@ -8,6 +8,15 @@ CREATE TABLE "platforms" (
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "platforms_code_unique" UNIQUE("code")
 );
+
+INSERT INTO "platforms" ("id", "code", "name", "icon", "color") VALUES
+('twitter', 'twitter', 'Twitter', 'twitter', '#1DA1F2'),
+('facebook', 'facebook', 'Facebook', 'facebook', '#4267B2'), 
+('instagram', 'instagram', 'Instagram', 'instagram', '#E1306C'),
+('linkedin', 'linkedin', 'LinkedIn', 'linkedin', '#0077B5'),
+('youtube', 'youtube', 'YouTube', 'youtube', '#FF0000'),
+('tiktok', 'tiktok', 'TikTok', 'tiktok', '#000000');
+
 --> statement-breakpoint
 CREATE TABLE "post_analytics" (
 	"id" text PRIMARY KEY NOT NULL,

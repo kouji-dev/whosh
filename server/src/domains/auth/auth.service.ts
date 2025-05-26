@@ -4,14 +4,14 @@ import { z } from 'zod';
 import { config } from '../../config';
 import { ValidationError } from '../../lib/errors';
 import { AuthRepository } from './auth.repository';
-import { User, GoogleProfile, AuthResponse, serviceRegisterSchema, serviceLoginSchema } from './auth.types';
+import { User, AuthResponse, registerSchema, loginSchema } from './auth.types';
 import { IAuthRepository } from './auth.repository';
 
 export interface IAuthService {
-  register(data: z.infer<typeof serviceRegisterSchema>): Promise<AuthResponse>;
-  login(data: z.infer<typeof serviceLoginSchema>): Promise<AuthResponse>;
-  handleGoogleAuth(profile: GoogleProfile): Promise<AuthResponse>;
+  register(data: z.infer<typeof registerSchema>): Promise<AuthResponse>;
+  login(data: z.infer<typeof loginSchema>): Promise<AuthResponse>;
   verifyToken(token: string): Promise<User>;
+  generateToken(user: User): string;
 }
 
 export class AuthService implements IAuthService {
@@ -29,7 +29,7 @@ export class AuthService implements IAuthService {
     return AuthService.instance;
   }
 
-  async register(data: z.infer<typeof serviceRegisterSchema>): Promise<AuthResponse> {
+  async register(data: z.infer<typeof registerSchema>): Promise<AuthResponse> {
     const existingUser = await this.repository.findByEmail(data.email);
     if (existingUser) {
       throw new ValidationError('Email already registered');
@@ -46,7 +46,7 @@ export class AuthService implements IAuthService {
     return { user, token };
   }
 
-  async login(data: z.infer<typeof serviceLoginSchema>): Promise<AuthResponse> {
+  async login(data: z.infer<typeof loginSchema>): Promise<AuthResponse> {
     const user = await this.repository.findByEmail(data.email);
     if (!user) {
       throw new ValidationError('Invalid credentials');
@@ -55,21 +55,6 @@ export class AuthService implements IAuthService {
     const isValidPassword = await this.verifyPassword(data.password, user.password);
     if (!isValidPassword) {
       throw new ValidationError('Invalid credentials');
-    }
-
-    const token = this.generateToken(user);
-    return { user, token };
-  }
-
-  async handleGoogleAuth(profile: GoogleProfile): Promise<AuthResponse> {
-    let user = await this.repository.findByEmail(profile.email);
-
-    if (!user) {
-      user = await this.repository.create({
-        email: profile.email,
-        name: profile.name,
-        password: '', // Google users don't need a password
-      });
     }
 
     const token = this.generateToken(user);
@@ -98,7 +83,7 @@ export class AuthService implements IAuthService {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  private generateToken(user: User): string {
+  generateToken(user: User): string {
     return jwt.sign(
       { id: user.id },
       config.jwt.secret,

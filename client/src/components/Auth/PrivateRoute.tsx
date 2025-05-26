@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 interface PrivateRouteProps {
@@ -10,14 +10,18 @@ interface PrivateRouteProps {
 }
 
 export function PrivateRoute({ children }: PrivateRouteProps) {
-  const { user, isLoading, error } = useAuth();
+  const { user, isLoading, error, refetchUser } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    refetchUser();
+  }, [refetchUser]);
+
+  useEffect(() => {
     if (!isLoading && !user) {
-      router.replace('/login');
+      router.push('/login');
     }
-  }, [user, isLoading, router]);
+  }, [isLoading, user, router]);
 
   if (isLoading) {
     return (

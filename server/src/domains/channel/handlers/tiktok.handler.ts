@@ -1,7 +1,8 @@
 import { BasePlatformHandler } from './platform-handler.base';
 import { OAuthTokens, UserInfo, ConnectionResult, PublishPostData, CreateChannelDto } from '../channel.types';
-import { PlatformCode, platforms } from '../../../config/platforms';
+import { platforms } from '../../../config/platforms';
 import { ChannelRepository } from '../channel.repository';
+import { logger } from '../../../infra/logger/pino-logger';
 
 interface TikTokAuthResponse {
   access_token: string;
@@ -81,6 +82,7 @@ export class TikTokHandler extends BasePlatformHandler {
     }
 
     const data = await response.json() as TikTokAuthResponse;
+    logger.info('TikTok auth response:', data);
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -90,22 +92,49 @@ export class TikTokHandler extends BasePlatformHandler {
   }
 
   async getUserInfo(accessToken: string): Promise<UserInfo> {
-    const response = await fetch(this.config.userInfoUrl, {
+    // TikTok API requires 'fields' query parameter
+    const fields = [
+      'open_id',
+      'union_id',
+      'avatar_url',
+      'avatar_url_100',
+      'avatar_large_url',
+      'display_name',
+      'bio_description',
+      'is_verified',
+      'username',
+      'follower_count',
+      'following_count',
+      'likes_count',
+      'video_count',
+    ].join(',');
+    const url = `${this.config.userInfoUrl}?fields=${fields}`;
+    const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      logger.error('Failed to get user info:', errorText);
       throw new Error('Failed to get user info');
     }
 
-    const data = await response.json() as TikTokUserResponse;
+    const data = await response.json() as any;
+    // Defensive: check structure
+    if (!data?.data?.user) {
+      logger.error('TikTok user info missing user object:', data);
+      throw new Error('TikTok user info missing user object');
+    }
+    const user = data.data.user;
+    logger.info('TikTok user info:', user);
     return {
-      id: data.data.user.open_id,
-      username: data.data.user.unique_id,
-      displayName: data.data.user.display_name,
-      avatarUrl: data.data.user.avatar_url,
+      id: user.open_id,
+      username: user.username || user.unique_id || '',
+      displayName: user.display_name || '',
+      avatarUrl: user.avatar_url || '',
+      // For future: add more fields to UserInfo and map here as needed
     };
   }
 
@@ -194,12 +223,12 @@ export class TikTokHandler extends BasePlatformHandler {
 
       return {
         success: true,
-        redirectUrl: `${clientUrl}/settings/channels?success=true`,
+        redirectUrl: `${clientUrl}/dashboard/channels?success=true`,
       };
     } catch (error) {
       return {
         success: false,
-        redirectUrl: `${clientUrl}/settings/channels?error=connection_failed`,
+        redirectUrl: `${clientUrl}/dashboard/channels?error=connection_failed`,
         error: error.message,
       };
     }

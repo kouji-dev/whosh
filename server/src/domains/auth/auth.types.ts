@@ -10,11 +10,6 @@ export interface User {
   updatedAt: Date;
 }
 
-export interface GoogleProfile {
-  email: string;
-  name: string;
-}
-
 // Response types
 export interface AuthResponse {
   user: User;
@@ -22,13 +17,13 @@ export interface AuthResponse {
 }
 
 // Validation schemas
-export const serviceRegisterSchema = z.object({
+export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().optional(),
 });
 
-export const serviceLoginSchema = z.object({
+export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
 });

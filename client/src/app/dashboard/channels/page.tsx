@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { useChannels } from "@/hooks/useChannels"
+import { usePlatforms } from "@/hooks/usePlatforms"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,8 +17,9 @@ import { Channel } from "@/services/channels"
 export default function ChannelsPage() {
   const router = useRouter()
   const { data: channels, isLoading, error, syncChannel, disconnectChannel, connectChannel } = useChannels()
+  const { platforms, isLoadingPlatforms } = usePlatforms();
 
-  if (isLoading) {
+  if (isLoading || isLoadingPlatforms) {
     return <div>Loading...</div>
   }
 
@@ -37,21 +39,11 @@ export default function ChannelsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => connectChannel("facebook")}>
-              Facebook
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => connectChannel("twitter")}>
-              Twitter
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => connectChannel("instagram")}>
-              Instagram
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => connectChannel("linkedin")}>
-              LinkedIn
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => connectChannel("tiktok")}>
-              TikTok
-            </DropdownMenuItem>
+            {platforms?.map((platform) => (
+              <DropdownMenuItem key={platform.code} onClick={() => connectChannel(platform.code)}>
+                {platform.name}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -70,26 +62,16 @@ export default function ChannelsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => connectChannel("facebook")}>
-                Facebook
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => connectChannel("twitter")}>
-                Twitter
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => connectChannel("instagram")}>
-                Instagram
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => connectChannel("linkedin")}>
-                LinkedIn
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => connectChannel("tiktok")}>
-                TikTok
-              </DropdownMenuItem>
+              {platforms?.map((platform) => (
+                <DropdownMenuItem key={platform.code} onClick={() => connectChannel(platform.code)}>
+                  {platform.name}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {channels?.map((channel: Channel) => (
             <ChannelCard
               key={channel.id}

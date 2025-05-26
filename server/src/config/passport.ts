@@ -1,11 +1,14 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
-import { prisma } from '../lib/prisma';
+import { dbClient } from '../lib/db';
+import { users } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import config from '../config';
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const GOOGLE_CLIENT_ID = config.google.clientId || '';
+const GOOGLE_CLIENT_SECRET = config.google.clientSecret || '';
+const JWT_SECRET = config.jwt.secret || 'your-secret-key';
 
 // JWT Strategy
 passport.use(
@@ -16,14 +19,10 @@ passport.use(
     },
     async (payload, done) => {
       try {
-        const user = await prisma.user.findUnique({
-          where: { id: payload.userId },
+        const user = await dbClient.query.users.findFirst({
+          where: eq(users.id, payload.userId),
         });
-
-        if (!user) {
-          return done(null, false);
-        }
-
+        if (!user) return done(null, false);
         return done(null, user);
       } catch (error) {
         return done(error, false);
@@ -42,24 +41,19 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Check if user exists
-        let user = await prisma.user.findFirst({
-          where: {
-            email: profile.emails?.[0].value,
-          },
+        let user = await dbClient.query.users.findFirst({
+          where: eq(users.email, profile.emails?.[0].value || ''),
         });
-
         if (!user) {
-          // Create new user
-          user = await prisma.user.create({
-            data: {
-              email: profile.emails?.[0].value || '',
-              name: profile.displayName,
-              password: '', // Empty password for OAuth users
-            },
-          });
+          const [createdUser] = await dbClient.insert(users).values({
+            email: profile.emails?.[0].value || '',
+            name: profile.displayName,
+            password: '', // Empty password for OAuth users
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }).returning();
+          user = createdUser;
         }
-
         return done(null, user);
       } catch (error) {
         return done(error as Error, undefined);

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,58 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import { useSse } from '@/hooks/useSse';
+import { useCallback } from 'react';
+import { TIKK_TOKEN } from '@/lib/constants';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signInWithPassword, signInWithGoogle, refetchUser, user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(searchParams.get('error'));
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    // On mount, if token exists, refetch user
+    if (localStorage.getItem(TIKK_TOKEN)) {
+      refetchUser().finally(() => setIsChecking(false));
+    } else {
+      setIsChecking(false);
+    }
+  }, [refetchUser]);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [loading, user, router]);
+
+
+  // Listen for google-auth-success SSE event
+  useSse(
+    'google-auth-success',
+    useCallback((data) => {
+      console.log('google-auth-success', data);
+      if (data?.token) {
+        localStorage.setItem(TIKK_TOKEN, data.token);
+        refetchUser().then(() => {
+          router.push('/dashboard');
+        });
+      } else if (data?.error) {
+        setError(data.error);
+        setIsLoading(false);
+      }
+    }, [router, refetchUser])
+  );
+
+  if (isChecking || loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,7 +74,7 @@ function LoginContent() {
     const rememberMe = formData.get('rememberMe') === 'on';
 
     try {
-      await signIn({ email, password, rememberMe });
+      await signInWithPassword({ email, password, rememberMe });
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');

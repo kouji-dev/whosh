@@ -1,5 +1,5 @@
-import { socialMediaConfig } from './index';
-
+import config from './index';
+const socialMedia = config.socialMedia;
 export type PlatformCode = 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube';
 
 export interface PlatformConfig {
@@ -34,8 +34,8 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     name: 'Facebook',
     icon: 'facebook',
     color: '#1877F2',
-    clientId: socialMediaConfig.facebook.clientId as string,
-    clientSecret: socialMediaConfig.facebook.clientSecret as string,
+    clientId: socialMedia.facebook.clientId as string,
+    clientSecret: socialMedia.facebook.clientSecret as string,
     apiVersion: 'v22.0',
     scopes: [
       'pages_show_list',
@@ -75,9 +75,9 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     name: 'TikTok',
     icon: 'tiktok',
     color: '#000000',
-    clientId: socialMediaConfig.tiktok.clientId as string,
-    clientSecret: socialMediaConfig.tiktok.clientSecret as string,
-    scopes: ['user.info.basic', 'user.info.profile', 'video.publish'],
+    clientId: socialMedia.tiktok.clientId as string,
+    clientSecret: socialMedia.tiktok.clientSecret as string,
+    scopes: ['user.info.basic', 'user.info.profile', 'user.info.stats', 'video.publish', 'video.upload', 'video.list'],
     authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
     userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/',

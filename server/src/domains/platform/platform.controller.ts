@@ -14,13 +14,4 @@ export class PlatformController extends BaseController {
     const platforms = await this.platformService.getPlatforms();
     this.ok(res, platforms);
   }
-
-  async getPlatformByCode(req: Request, res: Response): Promise<void> {
-    const platform = await this.platformService.getPlatformByCode(req.params.code);
-    if (!platform) {
-      this.notFound(res, 'Platform not found');
-      return;
-    }
-    this.ok(res, platform);
-  }
 } 

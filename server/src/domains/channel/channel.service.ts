@@ -3,6 +3,7 @@ import { Channel, CreateChannelDto, UpdateChannelDto, ConnectionResult } from '.
 import { PlatformHandlerFactory } from './handlers/platform-handler.factory';
 import { PlatformCode } from '../../config/platforms';
 import config from '../../config';
+import { sendSseEventToUserId } from '../../infra/sse/sse';
 
 export interface IChannelService {
   // Channel Management
@@ -16,7 +17,7 @@ export interface IChannelService {
 
   // Platform Connection
   getAuthUrl(platform: PlatformCode, redirectUri: string, userId: string): Promise<string>;
-  handleCallback(platform: PlatformCode, code: string, redirectUri: string, state: string): Promise<ConnectionResult>;
+  handleCallback(platform: PlatformCode, code: string, redirectUri: string, state: string, req: any): Promise<ConnectionResult>;
 }
 
 export class ChannelService implements IChannelService {
@@ -63,7 +64,7 @@ export class ChannelService implements IChannelService {
 
     return {
       isValid: channel.isActive && (!channel.tokenExpires || channel.tokenExpires > new Date()),
-      lastSync: channel.lastSync,
+      lastSync: channel.lastSync || undefined,
     };
   }
 
@@ -90,17 +91,14 @@ export class ChannelService implements IChannelService {
     return handler.getAuthUrl(redirectUri, userId);
   }
 
-  async handleCallback(platform: PlatformCode, code: string, redirectUri: string, state: string): Promise<ConnectionResult> {
+  async handleCallback(platform: PlatformCode, code: string, redirectUri: string, state: string, req: any): Promise<ConnectionResult> {
     try {
       const handler = PlatformHandlerFactory.getInstance().getHandler(platform);
       const { userId } = JSON.parse(Buffer.from(state, 'base64').toString());
-      
       const tokens = await handler.handleCallback(code, redirectUri, state);
       const userInfo = await handler.getUserInfo(tokens.accessToken);
-      
       // Check if channel already exists
       const existingChannel = await this.channelRepository.findByPlatformAndUserId(platform, userInfo.id);
-
       if (existingChannel) {
         // Update existing channel
         await this.channelRepository.update(existingChannel.id, {
@@ -128,15 +126,18 @@ export class ChannelService implements IChannelService {
           metadata: {},
         });
       }
-
+      // Notify client via SSE using client id from cookie
+      sendSseEventToUserId(userId, 'platform-connected', { platform });
+      // Redirect to the generic status page for the popup
       return {
         success: true,
-        redirectUrl: `${config.server.clientUrl}/settings/channels?success=true`,
+        redirectUrl: `${config.server.clientUrl}/status?status=success`,
       };
     } catch (error) {
+      const errorMsg = encodeURIComponent(error.message || 'Unknown error');
       return {
         success: false,
-        redirectUrl: `${config.server.clientUrl}/settings/channels?error=${error.message}`,
+        redirectUrl: `${config.server.clientUrl}/status?status=error&error=${errorMsg}`,
         error: error.message,
       };
     }
