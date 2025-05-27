@@ -11,15 +11,17 @@ export const errorHandler = (
   logger.error(err.message, err);
 
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+    res.status(err.statusCode).json({
       error: err.message,
       code: err.code,
     });
+  } else {
+    res.status(500).json({
+      error: 'Internal Server Error',
+      code: 'INTERNAL_SERVER_ERROR',
+      message: err.message,
+    });
   }
 
-  // Default error
-  return res.status(500).json({
-    error: 'Internal Server Error',
-    code: 'INTERNAL_SERVER_ERROR',
-  });
+  next();
 }; 

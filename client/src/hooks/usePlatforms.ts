@@ -32,4 +32,15 @@ export function usePlatforms() {
     platforms,
     isLoadingPlatforms
   };
+}
+
+export function usePlatformCapabilities() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['platformCapabilities'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('api/platforms/capabilities');
+      return data;
+    },
+  });
+  return { capabilities: data, isLoadingCapabilities: isLoading };
 } 

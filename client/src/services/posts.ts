@@ -3,7 +3,6 @@ import apiClient from '@/lib/axios';
 export interface Post {
   id: string;
   content: string;
-  mediaUrls: string[];
   scheduledFor: string;
   status: 'scheduled' | 'published' | 'failed';
   socialAccountId: string;
@@ -14,9 +13,9 @@ export interface Post {
 
 export interface CreatePostData {
   content: string;
-  mediaUrls: string[];
   scheduledFor: string;
   socialAccountId: string;
+  attachments?: File[];
 }
 
 export const postsService = {
@@ -28,7 +27,16 @@ export const postsService = {
   },
 
   schedulePost: async (data: CreatePostData): Promise<Post> => {
-    const response = await apiClient.post<Post>('/api/posts', data);
+    const formData = new FormData();
+    formData.append('content', data.content);
+    formData.append('scheduledFor', data.scheduledFor);
+    formData.append('socialAccountId', data.socialAccountId);
+    if (data.attachments) {
+      data.attachments.forEach((file) => formData.append('attachments', file));
+    }
+    const response = await apiClient.post<Post>('/api/posts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 

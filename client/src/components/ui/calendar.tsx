@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format as formatDate, Locale } from "date-fns"
+import React from "react";
 
 const locales = {
   "en-US": enUS,
@@ -79,6 +80,30 @@ function CustomWeekHeader({ date }: { date: Date }) {
   );
 }
 
+// Custom wrapper for month view cells
+function DisabledDateCellWrapper(props: { children?: React.ReactNode; value?: Date }) {
+  const { children, value } = props;
+  const now = new Date();
+  const isPast = value && value < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return (
+    <div style={isPast ? { opacity: 0.4, pointerEvents: 'none', background: '#f3f4f6' } : {}}>
+      {children}
+    </div>
+  );
+}
+
+// Custom wrapper for week/day time slots
+function DisabledTimeSlotWrapper(props: { children?: React.ReactNode; value?: Date }) {
+  const { children, value } = props;
+  const now = new Date();
+  const isPast = value && value < now;
+  return (
+    <div style={isPast ? { opacity: 0.4, pointerEvents: 'none', background: '#f3f4f6' } : {}}>
+      {children}
+    </div>
+  );
+}
+
 export function BigCalendar({
   events,
   defaultView = Views.WEEK,
@@ -87,6 +112,14 @@ export function BigCalendar({
   view,
   onViewChange,
 }: BigCalendarProps) {
+  // Helper to prevent selecting past slots
+  function handleSelecting(slotInfo: any) {
+    const now = new Date();
+    // slotInfo.start and slotInfo.end are Date objects
+    // Only allow selection if the slot is not in the past
+    return slotInfo.start >= now;
+  }
+
   return (
     <div className="w-full h-[70vh] bg-background rounded-lg border">
       {view === Views.WEEK && (
@@ -115,9 +148,10 @@ export function BigCalendar({
         selectable
         onSelectEvent={onSelectEvent}
         onSelectSlot={onSelectSlot}
+        onSelecting={handleSelecting}
         style={{ height: "100%", width: "100%" }}
         className={cn(
-          "!bg-background !text-foreground [&_.rbc-event]:!bg-primary/10 [&_.rbc-event]:!text-primary [&_.rbc-event]:rounded-md [&_.rbc-event]:border [&_.rbc-event]:border-primary/20 [&_.rbc-toolbar]:!p-0 [&_.rbc-toolbar]:!bg-background"
+          "!bg-background !text-foreground [&_.rbc-event]:!bg-primary/10 [&_.rbc-event]:!text-primary [&_.rbc-event]:rounded-md [&_.rbc-event]:border [&_.rbc-event]:border-primary/20 [&_.rbc-event]:rounded-md [&_.rbc-toolbar]:!p-0 [&_.rbc-toolbar]:!bg-background"
         )}
         popup
         components={{
@@ -139,6 +173,8 @@ export function BigCalendar({
             ) : (
               <span className="text-sm font-semibold text-foreground">{props.label}</span>
             ),
+          dateCellWrapper: DisabledDateCellWrapper,
+          timeSlotWrapper: DisabledTimeSlotWrapper,
         }}
         toolbar
       />

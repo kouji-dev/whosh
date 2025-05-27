@@ -14,4 +14,9 @@ export class PlatformController extends BaseController {
     const platforms = await this.platformService.getPlatforms();
     this.ok(res, platforms);
   }
+
+  async getCapabilities(req: Request, res: Response): Promise<void> {
+    const capabilities = await this.platformService.getCapabilities();
+    this.ok(res, capabilities);
+  }
 } 

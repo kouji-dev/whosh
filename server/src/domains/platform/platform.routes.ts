@@ -8,5 +8,6 @@ const controller = new PlatformController();
 router.use(authenticate);
 
 router.get('/', controller.getPlatforms.bind(controller));
+router.get('/capabilities', controller.getCapabilities.bind(controller));
 
 export default router; 

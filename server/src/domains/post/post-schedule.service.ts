@@ -6,17 +6,15 @@ import config from '../../config';
 import { eq } from 'drizzle-orm';
 import { posts } from '../../db/schema';
 import { Post } from './post.types';
-import { logger } from '../../infra/logger/pino-logger';
+import { loggerFactory } from '../../infra/logger/pino-logger';
+import { AttachmentService } from '../attachment/attachment.service';
+
+const logger = loggerFactory({ prefix: 'Post Scheduler' });
+const POST_PUBLISH_QUEUE = 'post-publish';
 
 export interface IPostScheduleService {
   start(): Promise<void>;
-  schedulePost(data: {
-    content: string;
-    mediaUrls: string[];
-    scheduledFor: Date;
-    channelId: string;
-    userId: string;
-  }): Promise<Post>;
+  schedulePost(post: Post): Promise<void>;
   cancelPost(postId: string): Promise<void>;
   getScheduledPosts(userId: string, status?: string): Promise<Post[]>;
 }
@@ -24,6 +22,7 @@ export interface IPostScheduleService {
 export class PostScheduleService implements IPostScheduleService {
   private static instance: PostScheduleService;
   private boss: PgBoss;
+  private attachmentService = AttachmentService.getInstance();
 
   private constructor() {
     if (!config.db.directUrl) {
@@ -32,7 +31,9 @@ export class PostScheduleService implements IPostScheduleService {
     this.boss = new PgBoss({
       connectionString: config.db.directUrl
     });
-    this.boss.on('error', console.error);
+    this.boss.on('error', (err) => {
+      logger.error('PgBoss error', { err });
+    });
   }
 
   static getInstance(): PostScheduleService {
@@ -46,21 +47,29 @@ export class PostScheduleService implements IPostScheduleService {
     try {
       logger.info('Post schedule service starting...');
       await this.boss.start();
-      logger.info('Post schedule service starting...');
+      logger.info('PgBoss started');
       await this.setupWorkers();
       logger.info('Post schedule service started successfully');
     } catch (error) {
-      logger.error('Failed to start post schedule service:', error);
+      logger.error('Failed to start post schedule service', error);
       throw error;
     }
   }
 
   private async setupWorkers() {
     logger.info('Setting up post-publish workers...');
-    await this.boss.work('post-publish', async (jobs) => {
+    await this.boss.createQueue(POST_PUBLISH_QUEUE, {
+      name: POST_PUBLISH_QUEUE,
+      policy: 'standard',
+      retryLimit: 1,
+      retryDelay: 1000,
+      retryBackoff: true
+    });
+    await this.boss.work(POST_PUBLISH_QUEUE, async (jobs: PgBoss.Job<{ postId: string }>[]) => {
+      logger.info('Worker received jobs', { jobs });
       for (const job of jobs) {
-        const { postId } = (job as unknown as PgBoss.Job<{ postId: string }>).data;
-        
+        const postId = job.id
+        logger.info('Worker received job for post', { postId });
         try {
           // Get the post with channel info
           const post = await dbClient.query.posts.findFirst({
@@ -75,18 +84,27 @@ export class PostScheduleService implements IPostScheduleService {
           });
 
           if (!post || !post.scheduledFor) {
+            logger.error('Post not found or missing scheduledFor', { postId });
             throw new Error('Post not found');
           }
 
           // Get the platform handler
           const handler = PlatformHandlerFactory.getInstance().getHandler(post.channel.platform.code as PlatformCode);
-          
+          logger.info('Publishing post to platform', { postId, platform: post.channel.platform.code });
           // Publish the post using the platform handler
           await handler.publishPost({
+            postId,
             content: post.content,
             mediaUrls: post.mediaUrls,
             accessToken: post.channel.accessToken
           });
+
+          // Delete attachments after successful publish
+          const attachments = await this.attachmentService.findByPostId(postId);
+          if (attachments.length > 0) {
+            await this.attachmentService.bulkDelete(attachments);
+            logger.info('Bulk deleted attachments after publish', { postId, attachmentIds: attachments.map(a => a.id) });
+          }
 
           // Update status
           await dbClient.update(posts)
@@ -96,14 +114,16 @@ export class PostScheduleService implements IPostScheduleService {
               updatedAt: new Date()
             })
             .where(eq(posts.id, postId));
-
+          logger.info('Post published and status updated', { postId });
         } catch (error) {
+          logger.error('Error publishing post, will retry if possible', { postId, err: error });
           // Get current retry count
           const post = await dbClient.query.posts.findFirst({
             where: eq(posts.id, postId)
           });
 
           if (!post) {
+            logger.error('Post not found during retry', { postId });
             throw new Error('Post not found during retry');
           }
 
@@ -116,13 +136,14 @@ export class PostScheduleService implements IPostScheduleService {
               updatedAt: new Date()
             })
             .where(eq(posts.id, postId));
-          
+          logger.info('Post marked as failed and retry count incremented', { postId, retryCount: post.retryCount + 1 });
           // Retry logic with exponential backoff
           const retryCount = post.retryCount + 1;
           if (retryCount <= 3) {
             const backoffMs = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
+            logger.info('Retrying post publish with backoff', { postId, retryCount, backoffMs });
             await this.boss.send(
-              'post-publish',
+              POST_PUBLISH_QUEUE,
               { postId },
               {
                 id: postId,
@@ -130,57 +151,40 @@ export class PostScheduleService implements IPostScheduleService {
                 retryDelay: backoffMs
               }
             );
+          } else {
+            logger.error('Max retries reached, giving up', { postId });
           }
         }
       }
     });
   }
 
-  async schedulePost(data: {
-    content: string;
-    mediaUrls: string[];
-    scheduledFor: Date;
-    channelId: string;
-    userId: string;
-  }): Promise<Post> {
-    // Save to database
-    const [post] = await dbClient.insert(posts)
-      .values({
-        content: data.content,
-        mediaUrls: data.mediaUrls,
-        scheduledFor: data.scheduledFor,
-        status: 'scheduled',
-        channelId: data.channelId,
-        userId: data.userId
-      })
-      .returning();
-
+  async schedulePost(post: Post): Promise<void> {
     if (!post.scheduledFor) {
+      logger.error('Scheduled date is required', { postId: post.id });
       throw new Error('Scheduled date is required');
     }
-
     // Schedule the job
-    await this.boss.send(
-      'post-publish',
-      { postId: post.id },
-      {
-        id: post.id,
-        startAfter: data.scheduledFor
-      }
-    );
-
-    return {
-      ...post,
-      scheduledFor: post.scheduledFor,
-      status: post.status as Post['status'],
-      publishedAt: post.publishedAt || null,
-      channelId: post.channelId // For backward compatibility
-    };
+    try {
+      await this.boss.send(
+        POST_PUBLISH_QUEUE,
+        {},
+        {
+          id: post.id,
+          startAfter: post.scheduledFor
+        }
+      );
+    } catch (error) {
+      logger.error('Failed to schedule post for publishing', { postId: post.id, err: error });
+      throw error;
+    }
+    logger.info('Post scheduled for publishing', { postId: post.id });
   }
 
   async cancelPost(postId: string): Promise<void> {
+    logger.info('Cancelling scheduled post', { postId });
     // Cancel the job
-    await this.boss.cancel('post-publish', postId);
+    await this.boss.cancel(POST_PUBLISH_QUEUE, postId);
     
     // Update status
     await dbClient.update(posts)
@@ -189,6 +193,7 @@ export class PostScheduleService implements IPostScheduleService {
         updatedAt: new Date()
       })
       .where(eq(posts.id, postId));
+    logger.info('Post cancelled and status updated', { postId });
   }
 
   async getScheduledPosts(userId: string, status?: string): Promise<Post[]> {

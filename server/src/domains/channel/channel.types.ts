@@ -67,4 +67,5 @@ export interface PublishPostData {
   content: string;
   mediaUrls: string[];
   metadata?: Record<string, any>;
+  postId: string;
 } 

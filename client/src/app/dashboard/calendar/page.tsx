@@ -7,6 +7,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { PostForm } from "@/components/calendar/PostForm";
 import { BigCalendar, CalendarEvent } from "@/components/ui/calendar";
 import { Views, View } from "react-big-calendar";
+import { setSeconds } from "date-fns";
 
 export default function CalendarPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -14,8 +15,8 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [newEvent, setNewEvent] = useState({
     title: "",
-    start: new Date(),
-    end: new Date(),
+    start: setSeconds(new Date(), 0),
+    end: setSeconds(new Date(), 0),
     resource: { channels: [] as string[] },
   });
   const [view, setView] = useState<View>(Views.WEEK);

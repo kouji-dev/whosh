@@ -10,7 +10,7 @@ export default function StatusPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       window.close();
-    }, error ? 5000 : 3000);
+    }, error ? 3000 : 1500);
     return () => clearTimeout(timer);
   }, [error]);
 

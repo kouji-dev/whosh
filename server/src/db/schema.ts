@@ -1,6 +1,8 @@
 import { pgTable, text, timestamp, integer, boolean, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { createId } from '@paralleldrive/cuid2';
 import { relations } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
+
+const createId = () => uuidv4();
 
 export const users = pgTable('users', {
   id: text('id').primaryKey().$defaultFn(() => createId()),
@@ -95,6 +97,17 @@ export const teamMembers = pgTable('team_members', {
   teamUserIdx: uniqueIndex('team_user_idx').on(table.teamId, table.userId),
 }));
 
+export const attachments = pgTable('attachments', {
+  id: text('id').primaryKey().$defaultFn(() => createId()),
+  filename: text('filename').notNull(),
+  mimetype: text('mimetype').notNull(),
+  size: integer('size').notNull(),
+  path: text('path').notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  postId: text('post_id').references(() => posts.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   channels: many(socialChannels),
@@ -118,7 +131,7 @@ export const socialChannelsRelations = relations(socialChannels, ({ one, many })
   posts: many(posts),
 }));
 
-export const postsRelations = relations(posts, ({ one }) => ({
+export const postsRelations = relations(posts, ({ one, many }) => ({
   user: one(users, {
     fields: [posts.userId],
     references: [users.id],
@@ -131,6 +144,7 @@ export const postsRelations = relations(posts, ({ one }) => ({
     fields: [posts.id],
     references: [postAnalytics.postId],
   }),
+  attachments: many(attachments),
 }));
 
 export const postAnalyticsRelations = relations(postAnalytics, ({ one }) => ({
@@ -151,6 +165,17 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
   }),
   user: one(users, {
     fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  post: one(posts, {
+    fields: [attachments.postId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [attachments.userId],
     references: [users.id],
   }),
 })); 

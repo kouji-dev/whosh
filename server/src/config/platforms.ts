@@ -2,6 +2,11 @@ import config from './index';
 const socialMedia = config.socialMedia;
 export type PlatformCode = 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube';
 
+export interface PlatformCapabilities {
+  allowedMedia: ("text" | "image" | "video")[];
+  maxTextLength: number;
+}
+
 export interface PlatformConfig {
   name: string;
   icon: string;
@@ -15,6 +20,7 @@ export interface PlatformConfig {
   userInfoUrl: string;
   uploadUrl?: string;
   postUrl?: string;
+  capabilities: PlatformCapabilities;
 }
 
 export const platforms: Record<PlatformCode, PlatformConfig> = {
@@ -28,7 +34,11 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     scopes: ['tweet.read', 'tweet.write', 'users.read'],
     authUrl: 'https://twitter.com/i/oauth2/authorize',
     tokenUrl: 'https://api.twitter.com/2/oauth2/token',
-    userInfoUrl: 'https://api.twitter.com/2/users/me'
+    userInfoUrl: 'https://api.twitter.com/2/users/me',
+    capabilities: {
+      allowedMedia: ['text', 'image', 'video'],
+      maxTextLength: 280,
+    },
   },
   facebook: {
     name: 'Facebook',
@@ -46,7 +56,11 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     ],
     authUrl: 'https://www.facebook.com/v22.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v22.0/oauth/access_token',
-    userInfoUrl: 'https://graph.facebook.com/v22.0/me'
+    userInfoUrl: 'https://graph.facebook.com/v22.0/me',
+    capabilities: {
+      allowedMedia: ['text', 'image', 'video'],
+      maxTextLength: 63206,
+    },
   },
   instagram: {
     name: 'Instagram',
@@ -58,7 +72,11 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     scopes: ['instagram_basic', 'instagram_content_publish'],
     authUrl: 'https://api.instagram.com/oauth/authorize',
     tokenUrl: 'https://api.instagram.com/oauth/access_token',
-    userInfoUrl: 'https://graph.instagram.com/me'
+    userInfoUrl: 'https://graph.instagram.com/me',
+    capabilities: {
+      allowedMedia: ['text', 'image', 'video'],
+      maxTextLength: 2200,
+    },
   },
   linkedin: {
     name: 'LinkedIn',
@@ -69,7 +87,11 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     scopes: ['r_liteprofile', 'w_member_social'],
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    userInfoUrl: 'https://api.linkedin.com/v2/me'
+    userInfoUrl: 'https://api.linkedin.com/v2/me',
+    capabilities: {
+      allowedMedia: ['text', 'image', 'video'],
+      maxTextLength: 3000,
+    },
   },
   tiktok: {
     name: 'TikTok',
@@ -82,7 +104,11 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
     userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/',
     uploadUrl: 'https://open.tiktokapis.com/v2/post/publish/video/upload/',
-    postUrl: 'https://open.tiktokapis.com/v2/post/publish/video/publish/'
+    postUrl: 'https://open.tiktokapis.com/v2/post/publish/video/publish/',
+    capabilities: {
+      allowedMedia: ['text', 'video'],
+      maxTextLength: 150,
+    },
   },
   youtube: {
     name: 'YouTube',
@@ -93,6 +119,10 @@ export const platforms: Record<PlatformCode, PlatformConfig> = {
     scopes: ['https://www.googleapis.com/auth/youtube'],
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
-    userInfoUrl: 'https://www.googleapis.com/youtube/v3/channels'
+    userInfoUrl: 'https://www.googleapis.com/youtube/v3/channels',
+    capabilities: {
+      allowedMedia: ['text', 'video'],
+      maxTextLength: 5000,
+    },
   }
 }; 

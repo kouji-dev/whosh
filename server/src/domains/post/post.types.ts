@@ -7,9 +7,9 @@ export type Post = InferSelectModel<typeof posts>;
 // Validation schemas
 export const createPostSchema = z.object({
   content: z.string().min(1),
-  mediaUrls: z.array(z.string().url()).optional(),
   scheduledFor: z.string().datetime(),
   socialAccountId: z.string().uuid(),
+  attachments: z.any().optional(), // Accepts files from FormData
 });
 
 export const cancelPostSchema = z.object({
