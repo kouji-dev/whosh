@@ -29,7 +29,7 @@ const features = [
 ];
 
 export default function LandingPage() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -38,7 +38,7 @@ export default function LandingPage() {
           <span className="text-xl font-bold">Tikk</span>
         </div>
         <div className="flex items-center space-x-4">
-          {isLoading ? (
+          {loading ? (
             <Button disabled>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Loading...
@@ -80,7 +80,7 @@ export default function LandingPage() {
                 Streamline your social media workflow, schedule posts, and analyze performance across all your platforms.
               </p>
               <div className="mt-10 flex items-center justify-center gap-x-6">
-                {isLoading ? (
+                {loading ? (
                   <Button disabled size="lg">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Loading...

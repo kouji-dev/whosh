@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from '../../lib/base.controller';
 import { PostService, IPostService } from './post.service';
 import { cancelPostSchema, getPostsSchema } from './post.types';
+import { createPostDto, updatePostDto } from './post.dtos';
 
 export class PostController extends BaseController {
   private postService: IPostService;
@@ -12,16 +13,17 @@ export class PostController extends BaseController {
   }
 
   async schedulePost(req: Request, res: Response) {
-    // If multipart/form-data, req.body fields are strings, req.files is array of files
-    let data: any = { ...req.body };
-    // Attachments from multer
+    // If files are uploaded, inject them into the correct place
+    let dtoInput = {
+      postInfo: req.body.postInfo,
+      attachments: req.body.attachments,
+    };
     if (req.files && Array.isArray(req.files)) {
-      data.attachments = req.files;
+      dtoInput.attachments = req.files.map(file => ({ file }));
     }
-    //data = createPostSchema.parse(data);
+    const parsed = createPostDto.parse(dtoInput);
     const post = await this.postService.schedulePost({
-      ...data,
-      scheduledFor: new Date(data.scheduledFor),
+      ...parsed,
       userId: req.user!.id,
     });
     this.created(res, post);
@@ -43,5 +45,23 @@ export class PostController extends BaseController {
     const { content, media, channels } = req.body;
     const errors = await this.postService.validatePostForPlatforms({ content, media, channels });
     this.ok(res, { errors });
+  }
+
+  async updatePost(req: Request, res: Response) {
+    let dtoInput = {
+      postInfo: req.body.postInfo,
+      attachments: req.body.attachments,
+    };
+    if (req.files && Array.isArray(req.files)) {
+      if (!dtoInput.attachments) dtoInput.attachments = {};
+      dtoInput.attachments.newFiles = req.files;
+    }
+    const parsed = updatePostDto.parse(dtoInput);
+    const post = await this.postService.updatePost({
+      ...parsed,
+      postId: req.params.postId,
+      userId: req.user!.id,
+    });
+    this.ok(res, post);
   }
 } 

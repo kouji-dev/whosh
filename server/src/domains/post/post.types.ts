@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { posts } from '../../db/schema';
 import { InferSelectModel } from 'drizzle-orm';
+import type { Attachment } from '../attachment/attachment.model';
 
-export type Post = InferSelectModel<typeof posts>;
+export type Post = InferSelectModel<typeof posts> & {
+  attachments?: Attachment[];
+};
 
 // Validation schemas
 export const createPostSchema = z.object({
   content: z.string().min(1),
   scheduledFor: z.string().datetime(),
-  socialAccountId: z.string().uuid(),
+  channelId: z.string().uuid(),
   attachments: z.any().optional(), // Accepts files from FormData
 });
 

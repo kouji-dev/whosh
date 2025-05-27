@@ -5,7 +5,10 @@ export const jsonBeautify = (req: Request, res: Response, next: NextFunction) =>
   const originalJson = res.json;
   res.json = function (body: any) {
     logger.info('API Response:', body);
-    return originalJson.call(this, JSON.parse(JSON.stringify(body, null, 2)));
+    if (body && typeof body === 'object' && !('data' in body) && !('message' in body && 'code' in body)) {
+      return originalJson.call(this, { data: body });
+    }
+    return originalJson.call(this, body);
   };
   next();
 }; 

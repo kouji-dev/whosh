@@ -3,6 +3,7 @@ import { AuthService } from '../../domains/auth/auth.service';
 import { AuthenticationError } from '../errors';
 import { associateUserIdWithClientId } from '../../infra/sse/sse';
 import { getClientIdFromRequest } from '../../infra/sse/sse.utils';
+import { logger } from '../../infra/logger/pino-logger';
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -29,6 +30,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     next();
   } catch (error) {
+    logger.error('Authentication error', error);
     next(error);
   }
 }; 

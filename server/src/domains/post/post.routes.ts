@@ -10,13 +10,16 @@ const upload = multer();
 // Schedule a new post
 router.post('/', authenticate, upload.any(), postController.schedulePost.bind(postController));
 
-// Cancel a scheduled post
+// Update a post
+router.put('/:postId', authenticate, postController.updatePost.bind(postController));
+
+// Cancel a post
 router.delete('/:postId', authenticate, postController.cancelPost.bind(postController));
 
 // Get scheduled posts
 router.get('/', authenticate, postController.getScheduledPosts.bind(postController));
 
-// Validate a post
+// Validate a post for platforms
 router.post('/validate', authenticate, postController.validatePost.bind(postController));
 
 export default router; 

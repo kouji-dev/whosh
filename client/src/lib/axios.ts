@@ -25,9 +25,9 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for handling errors
+// Response interceptor for unwrapping { data: ... } and handling { message, code } errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => response.data,
   async (error) => {
     const originalRequest = error.config;
 
@@ -40,7 +40,24 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle other errors: show toast
+    // Handle API protocol errors: { message, code }
+    if (
+      error.response &&
+      error.response.data &&
+      typeof error.response.data === 'object' &&
+      'message' in error.response.data &&
+      'code' in error.response.data
+    ) {
+      const { message, code } = error.response.data;
+      toast({
+        title: 'API Error',
+        description: message,
+        variant: 'destructive',
+      });
+      return Promise.reject({ message, code, status: error.response.status });
+    }
+
+    // Fallback to default error
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
     toast({
       title: 'API Error',

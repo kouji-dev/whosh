@@ -8,6 +8,7 @@ export interface IAttachmentService {
   delete(id: string): Promise<void>;
   findByPostId(postId: string): Promise<Attachment[]>;
   findByUserId(userId: string): Promise<Attachment[]>;
+  findByIds(ids: string[]): Promise<Attachment[]>;
   bulkDelete(
     attachments: Attachment[],
     callback: (attachment: Attachment) => Promise<void>
@@ -62,6 +63,10 @@ export class AttachmentService implements IAttachmentService {
 
   async findByUserId(userId: string): Promise<Attachment[]> {
     return this.repository.findByUserId(userId);
+  }
+
+  async findByIds(ids: string[]): Promise<Attachment[]> {
+    return this.repository.findByIds(ids);
   }
 
   async bulkDelete(

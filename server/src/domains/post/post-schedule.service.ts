@@ -16,7 +16,6 @@ export interface IPostScheduleService {
   start(): Promise<void>;
   schedulePost(post: Post): Promise<void>;
   cancelPost(postId: string): Promise<void>;
-  getScheduledPosts(userId: string, status?: string): Promise<Post[]>;
 }
 
 export class PostScheduleService implements IPostScheduleService {
@@ -194,30 +193,5 @@ export class PostScheduleService implements IPostScheduleService {
       })
       .where(eq(posts.id, postId));
     logger.info('Post cancelled and status updated', { postId });
-  }
-
-  async getScheduledPosts(userId: string, status?: string): Promise<Post[]> {
-    const results = await dbClient.query.posts.findMany({
-      where: eq(posts.userId, userId),
-      with: {
-        channel: {
-          with: {
-            platform: true
-          }
-        }
-      },
-      orderBy: (posts, { asc }) => [asc(posts.scheduledFor)]
-    });
-
-    return results
-      .filter((result): result is typeof result & { scheduledFor: Date } => 
-        result.scheduledFor !== null
-      )
-      .map(result => ({
-        ...result,
-        status: result.status as Post['status'],
-        publishedAt: result.publishedAt || null,
-        socialAccountId: result.channelId // For backward compatibility
-      }));
   }
 } 

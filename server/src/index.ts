@@ -21,16 +21,15 @@ import cookieParser from 'cookie-parser';
 const app = express();
 
 // Middleware
+app.use(morgan('dev'));
+app.use(jsonBeautify);
 app.use(helmet());
 app.use(cors({
   origin: config.server.corsOrigin,
   credentials: true,
 }));
-app.use(morgan('dev'));
-app.use(express.json());
 app.use(cookieParser());
-app.use(jsonBeautify);
-app.use(errorHandler);
+app.use(express.json());
 app.use(passport.initialize());
 
 // Rate limiting
@@ -46,6 +45,7 @@ app.use('/api/platforms', platformRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/channels', channelRoutes);
 
+app.use(errorHandler);
 // Start server
 const PORT = config.port;
 

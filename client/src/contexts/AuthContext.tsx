@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect } from 'react'
 import { useRouter } from 'next/navigation';
 import { TIKK_TOKEN } from '@/lib/constants';
 import { config } from '@/config/env';
-import axios from '@/lib/axios';
+import apiClient from '@/lib/axios';
 import { openPopupFlow } from '@/utils/popup';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -16,7 +16,6 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  isLoading: boolean;
   isLogged: boolean;
   error: any;
   signIn: (user: User, token: string) => void;
@@ -36,9 +35,8 @@ export function setSetUserOn401(fn: (user: User | null) => void) {
 }
 
 async function fetchUserFn(): Promise<User | null> {
-  const token = localStorage.getItem(TIKK_TOKEN);
-  if (!token) return null;
-  const { data } = await axios.get('/api/auth/me');
+  const { data } = await apiClient.get('/api/auth/me');
+  console.log(data);
   return data.user || null;
 }
 
@@ -58,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithPassword = async (credentials: { email: string; password: string; rememberMe?: boolean }) => {
-    const { data } = await axios.post('/api/auth/login', credentials);
+    const { data } = await apiClient.post('/api/auth/login', credentials);
     const user = data.user;
     const token = data.token;
     signIn(user, token);
@@ -93,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user: user ?? null, loading, isLoading: loading, isLogged, error, signIn, signInWithPassword, signInWithGoogle, signOut, setUser, refetchUser: refetch }}>
+    <AuthContext.Provider value={{ user: user ?? null, loading, isLogged, error, signIn, signInWithPassword, signInWithGoogle, signOut, setUser, refetchUser: refetch }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,59 +7,55 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { PostForm } from "@/components/calendar/PostForm";
 import { BigCalendar, CalendarEvent } from "@/components/ui/calendar";
 import { Views, View } from "react-big-calendar";
-import { setSeconds } from "date-fns";
+import { addHours, setSeconds } from "date-fns";
 import { usePosts } from "@/hooks/usePosts";
+import type { Post } from '@/services/posts';
+
+// CalendarPost: like Post, but with channels: string[] and scheduledFor: Date
+interface CalendarPost extends Omit<Post, 'channelId' | 'scheduledFor'> {
+  channels: string[];
+  scheduledFor: Date;
+}
 
 export default function CalendarPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [newEvent, setNewEvent] = useState({
-    title: "",
-    start: setSeconds(new Date(), 0),
-    end: setSeconds(new Date(), 0),
-    resource: { channels: [] as string[] },
+  const [currentPost, setCurrentPost] = useState<Partial<CalendarPost>>({
+    content: '',
+    scheduledFor: new Date(),
+    channels: [],
   });
   const [view, setView] = useState<View>(Views.WEEK);
 
   // Fetch posts from backend
   const { data: posts = [], isLoading } = usePosts();
-
-  console.log(posts);
   // Map posts to CalendarEvent
   const events: CalendarEvent[] = posts.map(post => ({
     id: post.id,
     title: post.content,
     start: new Date(post.scheduledFor),
-    end: new Date(post.scheduledFor), // Adjust if you have duration
-    resource: { status: post.status, channelId: post.channelId },
+    end: addHours(new Date(post.scheduledFor), 1),
+    resource: { ...post, channels: [post.channelId], scheduledFor: new Date(post.scheduledFor) },
   }));
 
   function handleScheduleEvent() {
-    if (!newEvent.title || newEvent.resource.channels.length === 0) return;
-    setNewEvent({ title: "", start: new Date(), end: new Date(), resource: { channels: [] } });
+    if (!currentPost.content || !currentPost.channels || currentPost.channels.length === 0) return;
+    setCurrentPost({ content: '', scheduledFor: new Date(), channels: [] });
     setEditingEvent(null);
     setIsDialogOpen(false);
   }
 
   function handleSelectEvent(event: CalendarEvent) {
+    console.log('Event clicked:', event);
     setEditingEvent(event);
-    setNewEvent({
-      title: event.title,
-      start: event.start,
-      end: event.end,
-      resource: { channels: event.resource?.channels || [] },
-    });
+    setCurrentPost({ ...event.resource });
     setIsDialogOpen(true);
   }
 
   function handleSelectSlot(slotInfo: any) {
+    console.log('Event select:', slotInfo);
     setEditingEvent(null);
-    setNewEvent({
-      title: "",
-      start: slotInfo.start,
-      end: slotInfo.end,
-      resource: { channels: [] },
-    });
+    setCurrentPost({ content: '', scheduledFor: slotInfo.start, channels: [] });
     setIsDialogOpen(true);
   }
 
@@ -75,18 +71,12 @@ export default function CalendarPage() {
             </Button>
           </DialogTrigger>
           <PostForm
-            post={{
-              title: newEvent.title,
-              scheduledFor: newEvent.start,
-              channels: newEvent.resource.channels,
-            }}
+            post={currentPost as any}
             onPostChange={(post) =>
-              setNewEvent((prev) => ({
+              setCurrentPost((prev) => ({
                 ...prev,
-                title: post.title,
-                start: post.scheduledFor,
-                end: post.scheduledFor,
-                resource: { channels: post.channels },
+                ...post,
+                scheduledFor: post.scheduledFor instanceof Date ? post.scheduledFor : new Date(post.scheduledFor),
               }))
             }
             onSubmit={handleScheduleEvent}

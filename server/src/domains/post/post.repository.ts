@@ -9,6 +9,7 @@ export interface IPostRepository {
   create(data: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>): Promise<Post>;
   update(id: string, data: Partial<Post>): Promise<Post>;
   delete(id: string): Promise<void>;
+  findWithChannelAndPlatformByUserId(userId: string, status?: string): Promise<any[]>;
 }
 
 export class PostRepository implements IPostRepository {
@@ -103,5 +104,23 @@ export class PostRepository implements IPostRepository {
 
   async delete(id: string): Promise<void> {
     await dbClient.delete(posts).where(eq(posts.id, id));
+  }
+
+  async findWithChannelAndPlatformByUserId(userId: string, status?: string): Promise<any[]> {
+    const query = status
+      ? and(eq(posts.userId, userId), eq(posts.status, status))
+      : eq(posts.userId, userId);
+
+    return dbClient.query.posts.findMany({
+      where: query,
+      with: {
+        channel: {
+          with: {
+            platform: true
+          }
+        }
+      },
+      orderBy: (posts, { asc }) => [asc(posts.scheduledFor)]
+    });
   }
 } 

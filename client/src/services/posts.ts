@@ -1,18 +1,30 @@
 import apiClient from '@/lib/axios';
 
+export interface Attachment {
+  id: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  path: string;
+  userId: string;
+  postId?: string | null;
+  createdAt: string;
+}
+
 export interface Post {
   id: string;
   content: string;
   mediaUrls: string[];
   status: 'scheduled' | 'published' | 'failed' | 'cancelled';
-  scheduledFor: string;
-  publishedAt?: string | null;
-  error?: string | null;
+  scheduledFor: string | null;
+  publishedAt: string | null;
+  error: string | null;
   retryCount: number;
   createdAt: string;
   updatedAt: string;
   userId: string;
   channelId: string;
+  attachments?: Attachment[];
 }
 
 export interface CreatePostData {

@@ -10,7 +10,7 @@ interface PrivateRouteProps {
 }
 
 export function PrivateRoute({ children }: PrivateRouteProps) {
-  const { user, isLoading, error, refetchUser } = useAuth();
+  const { user, loading, error, refetchUser } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -18,12 +18,12 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
   }, [refetchUser]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!loading && !user) {
       router.push('/login');
     }
-  }, [isLoading, user, router]);
+  }, [loading, user, router]);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -36,8 +36,11 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex flex-col h-screen items-center justify-center">
         <div className="text-lg text-destructive">Authentication error. Please try again.</div>
+        <div className="text-lg text-destructive">
+          {error.message}
+        </div>
       </div>
     );
   }

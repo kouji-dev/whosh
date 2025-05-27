@@ -15,6 +15,9 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format as formatDate, Locale } from "date-fns"
 import React from "react";
+import { platforms } from '@/config/platforms';
+import { useChannels } from '@/hooks/useChannels';
+import { PlatformIcon } from '@/components/ui/platform-icon';
 
 const locales = {
   "en-US": enUS,
@@ -104,6 +107,34 @@ function DisabledTimeSlotWrapper(props: { children?: React.ReactNode; value?: Da
   );
 }
 
+function EventCard({ event }: { event: CalendarEvent }) {
+  // event.resource.channelId is the channelId
+  // useChannels provides all channels, which have platformId
+  const { data: channels } = useChannels();
+  const channel = channels?.find((c: any) => c.id === event.resource?.channelId);
+  const platformId = channel?.platformId;
+  const platform = platformId ? platforms[platformId as keyof typeof platforms] : undefined;
+
+  return (
+    <div className="w-full h-full rounded-lg bg-white border border-muted px-2 py-2 flex flex-col justify-between gap-1 shadow-sm">
+      <div className="font-semibold text-base truncate text-foreground">{event.title}</div>
+      <div className="flex items-center gap-2 mt-1">
+        {platform && platformId && (
+          <span
+            className="inline-flex items-center gap-1 text-xs font-medium bg-muted text-foreground rounded p-1 h-5 w-5"
+          >
+            <PlatformIcon platform={platformId as any} size={18} />
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {event.start &&
+            event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function BigCalendar({
   events,
   defaultView = Views.WEEK,
@@ -134,6 +165,17 @@ export function BigCalendar({
           .rbc-time-view .rbc-row {
             min-height: 50px !important;
           }
+          .rbc-event, .rbc-event-content {
+            padding: 0 !important;
+            background: none !important;
+            border: none !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+          .rbc-event-label {
+            display: none !important;
+          }
         `}</style>
       )}
       <RBCalendar
@@ -156,9 +198,7 @@ export function BigCalendar({
         popup
         components={{
           event: ({ event }: { event: CalendarEvent }) => (
-            <div className="p-1 text-xs font-medium truncate text-foreground">
-              {event.title}
-            </div>
+            <EventCard event={event} />
           ),
           toolbar: (props: any) => (
             <CustomToolbar

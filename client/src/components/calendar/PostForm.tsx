@@ -12,12 +12,14 @@ import { usePlatformCapabilities } from '@/hooks/usePlatforms';
 import { Channel } from '@/services/channels';
 import { Image, Video } from 'lucide-react';
 import { FileUploadPicker } from '@/components/ui/FileUploadPicker';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
+import type { Attachment } from '@/services/posts';
 
 interface PostFormData {
-  title: string;
+  content: string;
   scheduledFor: Date;
   channels: string[];
+  attachments: (File | Attachment)[];
 }
 
 interface PostFormProps {
@@ -28,39 +30,32 @@ interface PostFormProps {
 }
 
 export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: PostFormProps) {
+  console.log('PostForm', post);
   const { mutateAsync: validatePost, isPending: isValidating } = useValidatePost();
   const { mutateAsync: schedulePost, isPending: isScheduling } = useSchedulePost();
   const now = new Date();
   const { data: channels, isLoading: isLoadingChannels } = useChannels();
   const { capabilities, isLoadingCapabilities } = usePlatformCapabilities();
 
-  const { register, handleSubmit, setError, control, formState: { errors, isSubmitting }, setValue, watch } = useForm({
+  const { register, handleSubmit, setError, control, formState: { errors, isSubmitting }, setValue, watch, getValues } = useForm<PostFormData>({
     defaultValues: {
-      title: post.title,
+      content: post.content,
       channels: post.channels,
-      attachments: [],
       scheduledFor: post.scheduledFor,
+      attachments: post.attachments || [],
     },
+    values: post
   });
 
-  // Use scheduledFor from useForm state
-  const scheduledFor = watch('scheduledFor');
+  const currentPost = watch();
 
-  if (isLoadingChannels || isLoadingCapabilities) {
-    return (
-      <DialogContent>
-        <div className="flex items-center justify-center h-40 text-muted-foreground">Loading...</div>
-      </DialogContent>
-    );
-  }
+  console.log('currentPost', currentPost);
 
   // Map selected channel IDs to their platform codes
   const selectedPlatforms = (channels || [])
-    .filter((c: Channel) => post.channels.includes(c.id))
+    .filter((c: Channel) => currentPost.channels.includes(c.id))
     .map((c: Channel) => c.platformId);
-
-  console.log(post.channels, channels, capabilities);
-
+    
   // Get allowed media and min text length for selected platforms
   function getPostConstraints() {
     if (!capabilities || selectedPlatforms.length === 0) {
@@ -78,24 +73,24 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
   function updateSchedule(date: Date | undefined) {
     if (!date) return;
     // Keep the time from the previous scheduledFor
-    const prev = scheduledFor;
+    const prev = currentPost.scheduledFor;
     date.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
     setValue('scheduledFor', date, { shouldValidate: true });
-    onPostChange({ ...post, scheduledFor: date });
+    onPostChange({ ...getValues(), scheduledFor: date });
   }
 
   // New: update only hour
   function onHourChange(hour: number) {
-    const updated = setHours(scheduledFor, hour);
+    const updated = setHours(currentPost.scheduledFor, hour);
     setValue('scheduledFor', updated, { shouldValidate: true });
-    onPostChange({ ...post, scheduledFor: updated });
+    onPostChange({ ...getValues(), scheduledFor: updated });
   }
 
   // New: update only minutes
   function onMinutesChange(minute: number) {
-    const updated = setMinutes(scheduledFor, minute);
+    const updated = setMinutes(currentPost.scheduledFor, minute);
     setValue('scheduledFor', updated, { shouldValidate: true });
-    onPostChange({ ...post, scheduledFor: updated });
+    onPostChange({ ...getValues(), scheduledFor: updated });
   }
 
   // Generate options for hours (0-23)
@@ -104,16 +99,16 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
   const minutes = Array.from({ length: 60 }, (_, i) => i * 1);
 
   // Extract current values
-  const selectedHour = scheduledFor.getHours();
-  const selectedMinute = scheduledFor.getMinutes();
+  const selectedHour = currentPost.scheduledFor.getHours();
+  const selectedMinute = currentPost.scheduledFor.getMinutes();
 
   // Disable logic for hours/minutes
   function isHourDisabled(hour: number) {
-    if (isToday(scheduledFor)) return hour < now.getHours();
+    if (isToday(currentPost.scheduledFor)) return hour < now.getHours();
     return false;
   }
   function isMinuteDisabled(minute: number) {
-    if (isToday(scheduledFor) && selectedHour === now.getHours()) return minute < now.getMinutes();
+    if (isToday(currentPost.scheduledFor) && selectedHour === now.getHours()) return minute < now.getMinutes();
     return false;
   }
 
@@ -131,47 +126,81 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
   }
 
   // Helper: is attachment missing when required?
-  function isAttachmentMissingWhenRequired(attachments: File[]) {
+  function isAttachmentMissingWhenRequired(attachments: (File | Attachment)[]) {
     if (!isAttachmentRequired()) return false;
     // For TikTok, require at least one video file
     if (selectedPlatforms.includes('tiktok')) {
-      return !attachments.some((f) => f.type.startsWith('video'));
+      return !attachments.some((f) => isFile(f) ? f.type.startsWith('video') : f.mimetype.startsWith('video'));
     }
     // Add more platform-specific checks if needed
     return false;
   }
 
-  const onFormSubmit = async (data: any) => {
+  // Helper type guard
+  function isFile(obj: File | Attachment): obj is File {
+    return obj instanceof File;
+  }
+  function isAttachment(obj: File | Attachment): obj is Attachment {
+    return !isFile(obj);
+  }
+
+  // Helper: get preview URL for File or Attachment
+  function getAttachmentUrl(att: File | Attachment): string {
+    if (att instanceof File) return URL.createObjectURL(att);
+    // For server attachments, you may need to adjust the base URL
+    return `/api/attachments/${att.id}`;
+  }
+
+  // Helper: render preview for File or Attachment
+  function renderAttachmentPreview(att: File | Attachment) {
+    if (isFile(att)) {
+      if (att.type.startsWith('image')) {
+        return <img src={getAttachmentUrl(att)} alt={att.name} className="w-16 h-16 object-cover rounded border" />;
+      }
+      if (att.type.startsWith('video')) {
+        return <video src={getAttachmentUrl(att)} className="w-16 h-16 object-cover rounded border" controls />;
+      }
+      return <span className="block w-16 h-16 flex items-center justify-center text-xs">{att.name}</span>;
+    } else {
+      if (att.mimetype.startsWith('image')) {
+        return <img src={getAttachmentUrl(att)} alt={att.filename} className="w-16 h-16 object-cover rounded border" />;
+      }
+      return <span className="block w-auto px-1 py-2 flex items-center justify-center text-xs">{att.filename}</span>;
+    }
+  }
+
+  const onFormSubmit = async (data: PostFormData) => {
     const res = await validatePost({
-      content: data.title,
-      media: (data.attachments || []).map((f: File) => ({ type: f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : 'other' })),
-      channels: post.channels
-        .map(cid => {
+      content: data.content,
+      media: data.attachments.filter(isFile).map((f) => ({ type: f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : 'other' })),
+      channels: data.channels
+        .map((cid: string) => {
           const channel = (channels || []).find((c: Channel) => c.id === cid);
           return channel?.platformId;
         })
-        .filter((id): id is string => Boolean(id)),
+        .filter((id: string | undefined): id is string => Boolean(id)),
     });
     if (res.errors && Object.keys(res.errors).length > 0) {
       Object.entries(res.errors).forEach(([platform, errs]) => {
-        (errs as string[]).forEach((err) => setError('title', { type: 'manual', message: `[${platform}] ${err}` }));
+        (errs as string[]).forEach((err) => setError('content', { type: 'manual', message: `[${platform}] ${err}` }));
       });
       return;
     }
     await handleSubmitPost(data.attachments);
   };
 
-  async function handleSubmitPost(attachments: File[]) {
+  async function handleSubmitPost(attachments: (File | Attachment)[]) {
     try {
+      const data = getValues();
       await Promise.all(
-        post.channels.map((channelId) => {
+        data.channels.map((channelId: string) => {
           const channel = (channels || []).find((c: Channel) => c.id === channelId);
           return schedulePost({
-            content: post.title,
+            content: data.content,
             mediaUrls: [], // TODO: Add media upload support
-            scheduledFor: post.scheduledFor.toISOString(),
+            scheduledFor: data.scheduledFor.toISOString(),
             channelId: channel?.id, // Ensure this is a UUID
-            attachments, // send all attachment data
+            attachments, // send all attachments (new and existing)
           });
         })
       );
@@ -194,47 +223,43 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
           <textarea
             className="w-full rounded-md border p-2 text-sm"
             rows={4}
-            value={post.title}
+            value={currentPost.content}
             maxLength={maxTextLength}
-            {...register('title', { required: true })}
-            onChange={(e) =>
-              onPostChange({
-                ...post,
-                title: e.target.value,
-              })
-            }
+            {...register('content', { required: true })}
+            onChange={(e) => {
+              setValue('content', e.target.value, { shouldValidate: true });
+              onPostChange({ ...getValues(), content: e.target.value });
+            }}
             placeholder="What's on your mind?"
           />
           <div className="text-xs text-muted-foreground">
-            {post.title.length}/{maxTextLength} characters
+            {(currentPost.content?.length ?? 0)}/{maxTextLength} characters
           </div>
-          {errors.title && (
+          {errors.content && (
             <div className="text-xs text-red-500 mt-1">
-              {Array.isArray(errors.title)
-                ? errors.title.map((err, idx) => <div key={idx}>{err.message}</div>)
-                : errors.title.message}
+              {Array.isArray(errors.content)
+                ? errors.content.map((err, idx) => <div key={idx}>{err.message}</div>)
+                : errors.content.message}
             </div>
           )}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Channels <span className="text-red-500">*</span></label>
           <ChannelSelector
-            selectedChannels={post.channels}
+            selectedChannels={currentPost.channels}
             onChannelSelect={(channelId) => {
-              const channels = post.channels.includes(channelId)
-                ? post.channels.filter((id) => id !== channelId)
-                : [...post.channels, channelId];
-              onPostChange({
-                ...post,
-                channels,
-              });
+              const newChannels = currentPost.channels.includes(channelId)
+                ? currentPost.channels.filter((id: string) => id !== channelId)
+                : [...currentPost.channels, channelId];
+              setValue('channels', newChannels, { shouldValidate: true });
+              onPostChange({ ...getValues(), channels: newChannels });
             }}
           />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Schedule Date <span className="text-red-500">*</span></label>
           <DatePicker
-            date={scheduledFor}
+            date={currentPost.scheduledFor}
             onChange={updateSchedule}
             disabled={date => isBefore(startOfDay(date), startOfDay(now))}
           />
@@ -271,40 +296,51 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
         </div>
         {/* Media upload section */}
         {(allowedMedia.includes('image') || allowedMedia.includes('video')) && (
-          <Controller
-            name="attachments"
-            control={control}
-            render={({ field }) => (
-              <>
-                {allowedMedia.includes('image') && (
-                  <FileUploadPicker
-                    label="Attach Images"
-                    icon={<Image className="h-5 w-5" />}
-                    accept="image/*" 
-                    multiple
-                    disabled={!allowedMedia.includes('image')}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-                {allowedMedia.includes('video') && (
-                  <FileUploadPicker
-                    label="Attach Video"
-                    icon={<Video className="h-5 w-5" />}
-                    accept="video/*"
-                    multiple={false}
-                    disabled={!allowedMedia.includes('video')}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-                {/* Show error if required and missing */}
-                {isAttachmentMissingWhenRequired(field.value) && (
-                  <div className="text-xs text-red-500 mt-1">Attachment required for selected platform(s).</div>
-                )}
-              </>
+          <>
+            {allowedMedia.includes('image') && (
+              <FileUploadPicker
+                label="Attach Images"
+                icon={<Image className="h-5 w-5" />}
+                accept="image/*"
+                multiple
+                disabled={!allowedMedia.includes('image')}
+                value={currentPost.attachments?.filter(isFile) || []}
+                onChange={(files) => setValue('attachments', [...(currentPost.attachments?.filter(isAttachment) || []), ...files], { shouldValidate: true })}
+              />
             )}
-          />
+            {allowedMedia.includes('video') && (
+              <FileUploadPicker
+                label="Attach Video"
+                icon={<Video className="h-5 w-5" />}
+                accept="video/*"
+                multiple={false}
+                disabled={!allowedMedia.includes('video')}
+                value={currentPost.attachments?.filter(isFile) || []}
+                onChange={(files) => setValue('attachments', [...(currentPost.attachments?.filter(isAttachment) || []), ...files], { shouldValidate: true })}
+              />
+            )}
+            {/* Show error if required and missing */}
+            {isAttachmentMissingWhenRequired(currentPost.attachments || []) && (
+              <div className="text-xs text-red-500 mt-1">Attachment required for selected platform(s).</div>
+            )}
+          </>
+        )}
+        {/* Preview section for attachments */}
+        {currentPost.attachments?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {currentPost.attachments.map((att, idx) => (
+              <div key={('id' in att ? att.id : (isFile(att) ? att.name : '')) + idx} className="flex relative group bg-muted rounded border">
+                {renderAttachmentPreview(att)}
+                <button
+                  type="button"
+                  className="text-black rounded-full text-xs opacity-80 group-hover:opacity-100"
+                  onClick={() => setValue('attachments', currentPost.attachments.filter((a: any) => (('id' in att ? a.id !== att.id : isFile(att) ? a.name !== att.name : true))), { shouldValidate: true })}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
         )}
         <Button
           className="w-full"

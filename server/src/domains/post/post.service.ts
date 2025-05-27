@@ -6,15 +6,11 @@ import { ChannelRepository, IChannelRepository } from '../channel/channel.reposi
 import { AttachmentService } from '../attachment/attachment.service';
 import { logger } from '../../infra/logger/pino-logger';
 import { v4 as uuidv4 } from 'uuid';
+import { CreatePostDto, UpdatePostDto } from './post.dtos';
 
 export interface IPostService {
-  schedulePost(data: {
-    content: string;
-    attachments: Express.Multer.File[];
-    scheduledFor: Date;
-    socialAccountId: string;
-    userId: string;
-  }): Promise<Post>;
+  schedulePost(dto: CreatePostDto & { userId: string }): Promise<Post>;
+  updatePost(dto: UpdatePostDto & { postId: string; userId: string }): Promise<Post>;
   cancelPost(postId: string): Promise<void>;
   getScheduledPosts(userId: string, status?: string): Promise<Post[]>;
   validatePostForPlatforms(args: { content: string; media: any[]; channels: string[] }): Promise<Record<string, string[]>>;
@@ -41,18 +37,13 @@ export class PostService implements IPostService {
     return PostService.instance;
   }
 
-  async schedulePost(data: {
-    content: string;
-    attachments: Express.Multer.File[];
-    scheduledFor: Date;
-    socialAccountId: string;
-    userId: string;
-  }): Promise<Post> {
+  async schedulePost(dto: CreatePostDto & { userId: string }): Promise<Post> {
+    const { postInfo, attachments } = dto;
     // 1. Validate post for each platform/channel
     const validationErrors = await this.validatePostForPlatforms({
-      content: data.content,
-      media: data.attachments,
-      channels: [data.socialAccountId],
+      content: postInfo.content,
+      media: attachments ? attachments.map(a => a.file) : [],
+      channels: [postInfo.channelId],
     });
     if (Object.keys(validationErrors).length > 0) {
       logger.error('Validation failed', validationErrors);
@@ -61,30 +52,30 @@ export class PostService implements IPostService {
 
     // 4. Create the post using repository
     let post: Post  = await this.postRepository.create({
-      content: data.content,
+      content: postInfo.content,
       mediaUrls: [], // Will be filled after upload to platform
-      scheduledFor: data.scheduledFor,
+      scheduledFor: new Date(postInfo.scheduledFor),
       status: 'scheduled',
-      channelId: data.socialAccountId,
-      userId: data.userId,
+      channelId: postInfo.channelId,
+      userId: dto.userId,
       publishedAt: null,
       error: null,
       retryCount: 0,
     });
 
     // 3. Save attachments and link to postId
-    if (data.attachments && data.attachments.length > 0) {
+    if (attachments && attachments.length > 0) {
       try {
-        const files = data.attachments.map(file => ({
+        const files = attachments.map(a => ({
           id: uuidv4(),
-          buffer: file.buffer,
-          originalname: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          userId: data.userId,
+          buffer: a.file.buffer,
+          originalname: a.file.originalname,
+          mimetype: a.file.mimetype,
+          size: a.file.size,
+          userId: dto.userId,
           postId: post.id,
         }));
-        await this.attachmentService.saveBulk(files, data.userId, post.id);
+        await this.attachmentService.saveBulk(files, dto.userId, post.id);
       } catch (err) {
         logger.error('Failed to save attachments', err);
       }
@@ -100,12 +91,71 @@ export class PostService implements IPostService {
     return post;
   }
 
+  async updatePost(dto: UpdatePostDto & { postId: string; userId: string }): Promise<Post> {
+    const { postInfo, attachments, postId, userId } = dto;
+    // Fetch the post and ensure it is not published
+    const postToUpdate = await this.postRepository.findById(postId);
+    if (!postToUpdate) throw new Error('Post not found');
+    if (postToUpdate.status === 'published') throw new Error('Cannot update a published post');
+    // Delete only attachments specified in attachments.deleted
+    if (attachments && attachments.deleted && attachments.deleted.length > 0) {
+      const toDelete = await this.attachmentService.findByIds(attachments.deleted);
+      if (toDelete.length > 0) {
+        await this.attachmentService.bulkDelete(toDelete);
+      }
+    }
+    // Save new attachments
+    if (attachments && attachments.newFiles && attachments.newFiles.length > 0) {
+      const files = attachments.newFiles.map(a => ({
+        id: uuidv4(),
+        buffer: a.file.buffer,
+        originalname: a.file.originalname,
+        mimetype: a.file.mimetype,
+        size: a.file.size,
+        userId,
+        postId,
+      }));
+      await this.attachmentService.saveBulk(files, userId, postId);
+    }
+    // Update the post
+    const post = await this.postRepository.update(postId, {
+      content: postInfo.content,
+      scheduledFor: new Date(postInfo.scheduledFor),
+      channelId: postInfo.channelId,
+      userId,
+      updatedAt: new Date(),
+    });
+    return post;
+  }
+
   async cancelPost(postId: string): Promise<void> {
+    // Fetch the post and ensure it is not published
+    const postToCancel = await this.postRepository.findById(postId);
+    if (!postToCancel) throw new Error('Post not found');
+    if (postToCancel.status === 'published') throw new Error('Cannot cancel a published post');
     await this.scheduleService.cancelPost(postId);
   }
 
   async getScheduledPosts(userId: string, status?: string): Promise<Post[]> {
-    return this.scheduleService.getScheduledPosts(userId, status);
+    // Fetch posts with channel and platform info
+    const results = await this.postRepository.findWithChannelAndPlatformByUserId(userId, status);
+
+    // Fetch attachments for each post
+    const postsWithAttachments = await Promise.all(results
+      .filter((result: any): result is typeof result & { scheduledFor: Date } => 
+        result.scheduledFor !== null
+      )
+      .map(async (result: any) => {
+        const attachments = await this.attachmentService.findByPostId(result.id);
+        return {
+          ...result,
+          status: result.status as Post['status'],
+          publishedAt: result.publishedAt || null,
+          channelId: result.channelId, // For backward compatibility
+          attachments,
+        };
+      }));
+    return postsWithAttachments;
   }
 
   async validatePostForPlatforms({ content, media, channels }: { content: string; media: any[]; channels: string[] }): Promise<Record<string, string[]>> {
