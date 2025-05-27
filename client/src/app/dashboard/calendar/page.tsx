@@ -8,11 +8,11 @@ import { PostForm } from "@/components/calendar/PostForm";
 import { BigCalendar, CalendarEvent } from "@/components/ui/calendar";
 import { Views, View } from "react-big-calendar";
 import { setSeconds } from "date-fns";
+import { usePosts } from "@/hooks/usePosts";
 
 export default function CalendarPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [newEvent, setNewEvent] = useState({
     title: "",
     start: setSeconds(new Date(), 0),
@@ -21,34 +21,21 @@ export default function CalendarPage() {
   });
   const [view, setView] = useState<View>(Views.WEEK);
 
+  // Fetch posts from backend
+  const { data: posts = [], isLoading } = usePosts();
+
+  console.log(posts);
+  // Map posts to CalendarEvent
+  const events: CalendarEvent[] = posts.map(post => ({
+    id: post.id,
+    title: post.content,
+    start: new Date(post.scheduledFor),
+    end: new Date(post.scheduledFor), // Adjust if you have duration
+    resource: { status: post.status, channelId: post.channelId },
+  }));
+
   function handleScheduleEvent() {
     if (!newEvent.title || newEvent.resource.channels.length === 0) return;
-    if (editingEvent) {
-      setEvents((prev) =>
-        prev.map((event) =>
-          event.id === editingEvent.id
-            ? {
-                ...event,
-                title: newEvent.title,
-                start: newEvent.start,
-                end: newEvent.end,
-                resource: { channels: newEvent.resource.channels },
-              }
-            : event
-        )
-      );
-    } else {
-      setEvents((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(36).substr(2, 9),
-          title: newEvent.title,
-          start: newEvent.start,
-          end: newEvent.end,
-          resource: { channels: newEvent.resource.channels },
-        },
-      ]);
-    }
     setNewEvent({ title: "", start: new Date(), end: new Date(), resource: { channels: [] } });
     setEditingEvent(null);
     setIsDialogOpen(false);
@@ -108,14 +95,18 @@ export default function CalendarPage() {
         </Dialog>
       </div>
       <div className="flex-1">
-        <BigCalendar
-          events={events}
-          defaultView={Views.WEEK}
-          view={view}
-          onViewChange={setView}
-          onSelectEvent={handleSelectEvent}
-          onSelectSlot={handleSelectSlot}
-        />
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">Loading...</div>
+        ) : (
+          <BigCalendar
+            events={events}
+            defaultView={Views.WEEK}
+            view={view}
+            onViewChange={setView}
+            onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
+          />
+        )}
       </div>
     </div>
   );

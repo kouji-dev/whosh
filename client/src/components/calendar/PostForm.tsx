@@ -170,7 +170,7 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
             content: post.title,
             mediaUrls: [], // TODO: Add media upload support
             scheduledFor: post.scheduledFor.toISOString(),
-            socialAccountId: channel?.id, // Ensure this is a UUID
+            channelId: channel?.id, // Ensure this is a UUID
             attachments, // send all attachment data
           });
         })

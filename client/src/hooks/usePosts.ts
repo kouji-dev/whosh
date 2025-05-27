@@ -13,7 +13,7 @@ export interface ValidatePostResult {
   errors: Record<string, string[]>;
 }
 
-export const useScheduledPosts = (status?: string) => {
+export const usePosts = (status?: string) => {
   return useQuery<Post[]>({
     queryKey: ['posts', 'scheduled', status],
     queryFn: () => postsService.getScheduledPosts(status),
