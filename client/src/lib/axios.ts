@@ -30,13 +30,18 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const originalRequest = error.config;
+    // Prevent redirect loop: if already on /login, do not redirect again
+    const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
 
-    // Handle 401 Unauthorized errors
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       localStorage.removeItem(TIKK_TOKEN);
       if (setUserOn401) setUserOn401(null);
-      window.location.href = '/login';
+      // Only redirect if not already on /login
+      if (!isLoginPage) {
+        window.location.href = '/login';
+      }
+      // Do not show toast or further handle if already on /login
       return Promise.reject(error);
     }
 

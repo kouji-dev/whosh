@@ -27,7 +27,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Bind userId to clientId in SSE mapping if both are present
     const clientId = getClientIdFromRequest(req, user?.id);
     associateUserIdWithClientId(user.id, clientId);
-
+  
     next();
   } catch (error) {
     logger.error('Authentication error', error);

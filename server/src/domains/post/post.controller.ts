@@ -3,6 +3,7 @@ import { BaseController } from '../../lib/base.controller';
 import { PostService, IPostService } from './post.service';
 import { cancelPostSchema, getPostsSchema } from './post.types';
 import { createPostDto, updatePostDto } from './post.dtos';
+import { logger } from '../../infra/logger/pino-logger';
 
 export class PostController extends BaseController {
   private postService: IPostService;
@@ -18,12 +19,22 @@ export class PostController extends BaseController {
       postInfo: req.body.postInfo,
       attachments: req.body.attachments,
     };
+    // Parse postInfo if it's a string (from FormData)
+    if (typeof dtoInput.postInfo === 'string') {
+      try {
+        dtoInput.postInfo = JSON.parse(dtoInput.postInfo);
+      } catch (e) {
+        logger.error('Failed to parse postInfo JSON', e);
+        return this.clientError(res, 'Invalid postInfo format');
+      }
+    }
     if (req.files && Array.isArray(req.files)) {
       dtoInput.attachments = req.files.map(file => ({ file }));
     }
-    const parsed = createPostDto.parse(dtoInput);
+    console.log(req.body);
+    //const parsed = createPostDto.parse(dtoInput);
     const post = await this.postService.schedulePost({
-      ...parsed,
+      ...dtoInput,
       userId: req.user!.id,
     });
     this.created(res, post);
@@ -52,9 +63,18 @@ export class PostController extends BaseController {
       postInfo: req.body.postInfo,
       attachments: req.body.attachments,
     };
+    // Parse postInfo if it's a string (from FormData)
+    if (typeof dtoInput.postInfo === 'string') {
+      try {
+        dtoInput.postInfo = JSON.parse(dtoInput.postInfo);
+      } catch (e) {
+        logger.error('Failed to parse postInfo JSON', e);
+        return this.clientError(res, 'Invalid postInfo format');
+      }
+    }
     if (req.files && Array.isArray(req.files)) {
       if (!dtoInput.attachments) dtoInput.attachments = {};
-      dtoInput.attachments.newFiles = req.files;
+      dtoInput.attachments.newFiles = req.files.map(file => ({ file }));
     }
     const parsed = updatePostDto.parse(dtoInput);
     const post = await this.postService.updatePost({

@@ -35,9 +35,14 @@ export function setSetUserOn401(fn: (user: User | null) => void) {
 }
 
 async function fetchUserFn(): Promise<User | null> {
-  const { data } = await apiClient.get('/api/auth/me');
-  console.log(data);
-  return data.user || null;
+  try {
+    const { data } = await apiClient.get('/api/auth/me');
+    return data.user || null;
+  } catch (err: any) {
+    // If 401, just return null (user not logged in)
+    if (err?.response?.status === 401) return null;
+    throw err;
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

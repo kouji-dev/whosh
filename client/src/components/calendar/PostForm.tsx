@@ -5,7 +5,7 @@ import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog
 import { ChannelSelector } from '@/components/calendar/ChannelSelector';
 import { format, isBefore, startOfDay, isToday, setHours, setMinutes } from 'date-fns';
 import { useState } from 'react';
-import { useSchedulePost, useValidatePost } from '@/hooks/usePosts';
+import { useSchedulePost, useValidatePost, useUpdatePost } from '@/hooks/usePosts';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useChannels } from '@/hooks/useChannels';
 import { usePlatformCapabilities } from '@/hooks/usePlatforms';
@@ -16,10 +16,11 @@ import { useForm } from 'react-hook-form';
 import type { Attachment } from '@/services/posts';
 
 interface PostFormData {
+  id?: string;
   content: string;
   scheduledFor: Date;
   channels: string[];
-  attachments: (File | Attachment)[];
+  attachments?: (File | Attachment)[];
 }
 
 interface PostFormProps {
@@ -33,6 +34,7 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
   console.log('PostForm', post);
   const { mutateAsync: validatePost, isPending: isValidating } = useValidatePost();
   const { mutateAsync: schedulePost, isPending: isScheduling } = useSchedulePost();
+  const { mutateAsync: updatePost, isPending: isUpdating } = useUpdatePost();
   const now = new Date();
   const { data: channels, isLoading: isLoadingChannels } = useChannels();
   const { capabilities, isLoadingCapabilities } = usePlatformCapabilities();
@@ -172,7 +174,7 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
   const onFormSubmit = async (data: PostFormData) => {
     const res = await validatePost({
       content: data.content,
-      media: data.attachments.filter(isFile).map((f) => ({ type: f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : 'other' })),
+      media: (data.attachments ?? []).filter(isFile).map((f) => ({ type: f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : 'other' })),
       channels: data.channels
         .map((cid: string) => {
           const channel = (channels || []).find((c: Channel) => c.id === cid);
@@ -186,28 +188,50 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
       });
       return;
     }
-    await handleSubmitPost(data.attachments);
+    await handleSubmitPost(data.attachments ?? []);
   };
 
   async function handleSubmitPost(attachments: (File | Attachment)[]) {
     try {
       const data = getValues();
-      await Promise.all(
-        data.channels.map((channelId: string) => {
-          const channel = (channels || []).find((c: Channel) => c.id === channelId);
-          return schedulePost({
+      if (isEditing && typeof post.id === 'string' && post.id) {
+        // Prepare new files and deleted attachment IDs
+        const newFiles = attachments.filter(isFile);
+        const existingAttachmentIds = (post.attachments || [])
+          .filter((a) => 'id' in a)
+          .map((a: any) => a.id);
+        const deletedAttachmentIds = existingAttachmentIds.filter(
+          (id) => !attachments.some((a) => !isFile(a) && a.id === id)
+        );
+        await updatePost({
+          postId: post.id,
+          data: {
             content: data.content,
-            mediaUrls: [], // TODO: Add media upload support
             scheduledFor: data.scheduledFor.toISOString(),
-            channelId: channel?.id, // Ensure this is a UUID
-            attachments, // send all attachments (new and existing)
-          });
-        })
-      );
+            channelId: data.channels[0], // Only one channel per post for editing
+            newFiles,
+            deletedAttachmentIds,
+          },
+        });
+      } else {
+        await Promise.all(
+          data.channels.map((channelId: string) => {
+            const channel = (channels || []).find((c: Channel) => c.id === channelId);
+            return schedulePost({
+              postInfo: {
+                content: data.content,
+                scheduledFor: data.scheduledFor.toISOString(),
+                channelId: channel?.id,
+              },
+              attachments: attachments.filter(isFile),
+            });
+          })
+        );
+      }
       onSubmit();
       return true;
     } catch (error) {
-      console.error('Failed to schedule posts:', error);
+      console.error('Failed to schedule/update posts:', error);
       return false;
     }
   }
@@ -320,21 +344,21 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
               />
             )}
             {/* Show error if required and missing */}
-            {isAttachmentMissingWhenRequired(currentPost.attachments || []) && (
+            {isAttachmentMissingWhenRequired(currentPost.attachments ?? []) && (
               <div className="text-xs text-red-500 mt-1">Attachment required for selected platform(s).</div>
             )}
           </>
         )}
         {/* Preview section for attachments */}
-        {currentPost.attachments?.length > 0 && (
+        {currentPost.attachments && currentPost.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
-            {currentPost.attachments.map((att, idx) => (
+            {(currentPost.attachments ?? []).map((att, idx) => (
               <div key={('id' in att ? att.id : (isFile(att) ? att.name : '')) + idx} className="flex relative group bg-muted rounded border">
                 {renderAttachmentPreview(att)}
                 <button
                   type="button"
                   className="text-black rounded-full text-xs opacity-80 group-hover:opacity-100"
-                  onClick={() => setValue('attachments', currentPost.attachments.filter((a: any) => (('id' in att ? a.id !== att.id : isFile(att) ? a.name !== att.name : true))), { shouldValidate: true })}
+                  onClick={() => setValue('attachments', (currentPost.attachments ?? []).filter((a: any) => (('id' in att ? a.id !== att.id : isFile(att) ? a.name !== att.name : true))), { shouldValidate: true })}
                 >
                   ×
                 </button>
@@ -346,7 +370,7 @@ export function PostForm({ post, onPostChange, onSubmit, isEditing = false }: Po
           className="w-full"
           type="submit"
         >
-          {isValidating || isScheduling ? 'Validating...' : isEditing ? 'Update Post' : 'Schedule Post'}
+          {isValidating || isScheduling || isUpdating ? 'Validating...' : isEditing ? 'Update Post' : 'Schedule Post'}
         </Button>
       </form>
     </DialogContent>

@@ -63,4 +63,21 @@ export function useCancelPost() {
       toast.error('Failed to cancel post');
     },
   });
+}
+
+export function useUpdatePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ postId, data }: { postId: string; data: any }) => {
+      return postsService.updatePost(postId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      toast.success('Post updated successfully');
+    },
+    onError: (error) => {
+      console.error('Failed to update post:', error);
+      toast.error('Failed to update post');
+    },
+  });
 } 

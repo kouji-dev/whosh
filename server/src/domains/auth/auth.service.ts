@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { config } from '../../config';
-import { ValidationError } from '../../lib/errors';
+import { AuthenticationError } from '../../lib/errors';
 import { AuthRepository } from './auth.repository';
 import { User, AuthResponse, registerSchema, loginSchema } from './auth.types';
 import { IAuthRepository } from './auth.repository';
@@ -32,7 +32,7 @@ export class AuthService implements IAuthService {
   async register(data: z.infer<typeof registerSchema>): Promise<AuthResponse> {
     const existingUser = await this.repository.findByEmail(data.email);
     if (existingUser) {
-      throw new ValidationError('Email already registered');
+      throw new AuthenticationError('Email already registered');
     }
 
     const hashedPassword = await this.hashPassword(data.password);
@@ -49,12 +49,12 @@ export class AuthService implements IAuthService {
   async login(data: z.infer<typeof loginSchema>): Promise<AuthResponse> {
     const user = await this.repository.findByEmail(data.email);
     if (!user) {
-      throw new ValidationError('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     const isValidPassword = await this.verifyPassword(data.password, user.password);
     if (!isValidPassword) {
-      throw new ValidationError('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     const token = this.generateToken(user);
@@ -66,11 +66,11 @@ export class AuthService implements IAuthService {
       const decoded = jwt.verify(token, config.jwt.secret) as { id: string };
       const user = await this.repository.findById(decoded.id);
       if (!user) {
-        throw new ValidationError('Invalid token');
+        throw new AuthenticationError('Invalid token');
       }
       return user;
     } catch (error) {
-      throw new ValidationError('Invalid token');
+      throw new AuthenticationError('Invalid token');
     }
   }
 
